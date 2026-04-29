@@ -2,7 +2,10 @@ import { Geist, Geist_Mono, Inter } from "next/font/google"
 
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
+import { Providers } from "@/providers"
+import { Toaster } from "@/components/ui/sonner"
 import { cn } from "@/lib/utils";
+import { ConvexAuthNextjsServerProvider } from "@convex-dev/auth/nextjs/server";
 
 const geistHeading = Geist({subsets:['latin'],variable:'--font-heading'});
 
@@ -13,7 +16,7 @@ const fontMono = Geist_Mono({
   variable: "--font-mono",
 })
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode
@@ -25,7 +28,14 @@ export default function RootLayout({
       className={cn("antialiased", fontMono.variable, "font-sans", inter.variable, geistHeading.variable)}
     >
       <body>
-        <ThemeProvider>{children}</ThemeProvider>
+        <ConvexAuthNextjsServerProvider>
+          <Providers>
+            <ThemeProvider>
+              {children}
+              <Toaster richColors position="top-right" />
+            </ThemeProvider>
+          </Providers>
+        </ConvexAuthNextjsServerProvider>
       </body>
     </html>
   )
