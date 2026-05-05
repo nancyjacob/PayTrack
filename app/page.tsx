@@ -322,7 +322,7 @@ export default function LandingPage() {
           ].map(({ icon: Icon, value, label }) => (
             <div key={label} className="flex flex-col items-center gap-1 px-4 text-center">
               <Icon size={18} className="mb-1 text-primary" />
-              <p className="font-heading text-2xl font-bold">{value}</p>
+              <p className="font-heading text-gray-900 text-2xl font-bold">{value}</p>
               <p className="text-xs text-muted-foreground">{label}</p>
             </div>
           ))}
@@ -345,7 +345,7 @@ export default function LandingPage() {
         />
         <div className="relative mx-auto max-w-6xl px-4 sm:px-6">
           <div className="mb-12 text-center">
-            <h2 className="font-heading text-3xl font-bold">
+            <h2 className="font-heading text-gray-950 text-3xl font-bold">
               Everything you need to get paid
             </h2>
             <p className="mt-3 text-muted-foreground">One tool, zero spreadsheets.</p>
@@ -392,7 +392,7 @@ export default function LandingPage() {
                 <div className={`mb-4 inline-flex size-11 items-center justify-center rounded-xl ${iconBg}`}>
                   <Icon size={20} className={iconColor} />
                 </div>
-                <h3 className="font-heading mb-2 font-semibold">{title}</h3>
+                <h3 className="font-heading text-gray-900 mb-2 font-semibold">{title}</h3>
                 <p className="text-sm text-muted-foreground">{desc}</p>
               </div>
             ))}
@@ -488,7 +488,7 @@ export default function LandingPage() {
         <GridLines className="opacity-50" />
         <div className="relative mx-auto max-w-6xl px-4 sm:px-6">
           <div className="mb-12 text-center">
-            <h2 className="font-heading text-3xl font-bold">How it works</h2>
+            <h2 className="font-heading text-gray-900 text-3xl font-bold">How it works</h2>
             <p className="mt-3 text-muted-foreground">From zero to paid in three steps.</p>
           </div>
           <div className="grid gap-8 sm:grid-cols-3">
@@ -519,7 +519,7 @@ export default function LandingPage() {
                     {i + 1}
                   </span>
                 </div>
-                <h3 className="font-heading mb-2 font-semibold">{title}</h3>
+                <h3 className="font-heading text-gray-800 mb-2 font-semibold">{title}</h3>
                 <p className="text-sm text-muted-foreground">{desc}</p>
               </div>
             ))}
@@ -548,7 +548,7 @@ export default function LandingPage() {
         />
         <div className="relative mx-auto max-w-6xl px-4 sm:px-6">
           <div className="mb-12 text-center">
-            <h2 className="font-heading text-3xl font-bold">Simple pricing</h2>
+            <h2 className="font-heading text-gray-950 text-3xl font-bold">Simple pricing</h2>
             <p className="mt-3 text-muted-foreground">Start free. Upgrade when you grow.</p>
           </div>
           <div className="mx-auto grid max-w-2xl gap-6 sm:grid-cols-2">
@@ -557,9 +557,9 @@ export default function LandingPage() {
               <p className="font-heading text-sm font-semibold uppercase tracking-widest text-muted-foreground">
                 Free
               </p>
-              <p className="font-heading mt-2 text-4xl font-bold">₦0</p>
+              <p className="font-heading text-gray-950 mt-2 text-4xl font-bold">₦0</p>
               <p className="mt-1 text-sm text-muted-foreground">Forever</p>
-              <ul className="mt-6 space-y-3 text-sm">
+              <ul className="mt-6 space-y-3 text-gray-950 text-sm">
                 {[
                   "Up to 5 invoices",
                   "PDF invoice generation",
@@ -573,8 +573,8 @@ export default function LandingPage() {
                   </li>
                 ))}
               </ul>
-              <Button className="mt-8 w-full" variant="outline" asChild>
-                <Link href="/sign-up">Get started</Link>
+              <Button className="mt-8 w-full text-gray-950" variant="outline" asChild>
+                <Link href="/sign-up" className="text-gray-900">Get started</Link>
               </Button>
             </div>
 
