@@ -223,11 +223,11 @@ export default function LandingPage() {
     <div className="min-h-screen text-foreground">
 
       {/* ── Nav ── */}
-      <header className="sticky top-0 z-50 border-b border-border/40 bg-white/80 backdrop-blur-sm">
+      <header className="sticky top-0 z-50 border-b border-border/40 bg-white/90 backdrop-blur-sm">
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 sm:px-6">
           <LogoFull markSize={32} textClassName="text-foreground" />
           <nav className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" asChild>
+            <Button variant="ghost" className="text-gray-900" size="sm" asChild>
               <Link href="/sign-in">Sign in</Link>
             </Button>
             <Button size="sm" asChild>

@@ -102,7 +102,7 @@ export function LogoFull({
     <span className={`inline-flex items-center gap-2.5 ${className}`}>
       <LogoMark size={markSize} />
       <span
-        className={`font-heading text-xl font-bold leading-none ${textClassName}`}
+        className={`font-heading text-gray-950 text-xl font-bold leading-none ${textClassName}`}
       >
         PayTrack
       </span>
