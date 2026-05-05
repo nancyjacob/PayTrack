@@ -247,7 +247,7 @@ export default function LandingPage() {
             "linear-gradient(160deg, oklch(0.96 0.03 290) 0%, oklch(0.92 0.055 292) 50%, oklch(0.88 0.07 295) 100%)",
         }}
       >
-        <DotGrid className="-z-0 opacity-60" />
+        <DotGrid className="[-z-0] opacity-60" />
 
         {/* Large radial glow centre */}
         <div
@@ -286,7 +286,7 @@ export default function LandingPage() {
                 className="min-w-44 border-white/60 bg-white/50 backdrop-blur-sm hover:bg-white/70"
                 asChild
               >
-                <Link href="/sign-in">Sign in to dashboard</Link>
+                <Link href="/sign-in" className="text-gray-900">Sign in to dashboard</Link>
               </Button>
             </div>
             <p className="mt-4 text-xs text-gray-500">
