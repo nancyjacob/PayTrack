@@ -10,129 +10,156 @@ import {
   TrendingUp,
   Users,
   Clock,
+  ShieldCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { LogoFull } from "@/components/logo";
 
-/* ─── Dot-grid overlay used in multiple sections ─── */
-function DotGrid({ className = "" }: { className?: string }) {
+/* ─── Browser-chrome product frame shown at bottom of hero ─── */
+function ProductFrame() {
   return (
-    <div
-      aria-hidden
-      className={`pointer-events-none absolute inset-0 ${className}`}
-      style={{
-        backgroundImage:
-          "radial-gradient(circle, oklch(0.491 0.27 292.581 / 0.18) 1.5px, transparent 1.5px)",
-        backgroundSize: "28px 28px",
-      }}
-    />
-  );
-}
-
-/* ─── Subtle grid-lines overlay ─── */
-function GridLines({ className = "" }: { className?: string }) {
-  return (
-    <div
-      aria-hidden
-      className={`pointer-events-none absolute inset-0 ${className}`}
-      style={{
-        backgroundImage:
-          "linear-gradient(oklch(0.491 0.27 292.581 / 0.06) 1px, transparent 1px), linear-gradient(90deg, oklch(0.491 0.27 292.581 / 0.06) 1px, transparent 1px)",
-        backgroundSize: "48px 48px",
-      }}
-    />
-  );
-}
-
-/* ─── Mock invoice card shown in hero ─── */
-function InvoiceMockup() {
-  return (
-    <div className="relative mx-auto w-full max-w-sm lg:mx-0">
-      {/* Glow */}
+    <div className="relative mx-auto max-w-4xl px-4 sm:px-6">
+      {/* Purple glow sitting behind the frame */}
       <div
         aria-hidden
-        className="absolute inset-0 -z-10 rounded-3xl opacity-40 blur-3xl"
-        style={{
-          background:
-            "radial-gradient(ellipse at 50% 50%, oklch(0.491 0.27 292.581), transparent 70%)",
-        }}
+        className="absolute bottom-0 left-1/2 -translate-x-1/2 h-56 w-3/4 rounded-full opacity-50 blur-3xl"
+        style={{ background: "oklch(0.491 0.27 292.581)" }}
       />
 
-      {/* Card */}
-      <div className="rounded-2xl border border-white/20 bg-white shadow-2xl">
-        <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
-          <LogoFull markSize={24} textClassName="text-primary" />
-          <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-700">
-            Pending
-          </span>
-        </div>
-        <div className="border-b border-gray-100 px-5 py-4">
-          <p className="text-xs text-gray-400">Invoice #PT-0042</p>
-          <p className="mt-0.5 text-base font-semibold text-gray-900">Acme Corp Ltd</p>
-          <p className="text-xs text-gray-400">Due: 15 Jun 2025</p>
-        </div>
-        <div className="space-y-2 px-5 py-4">
-          {[
-            { name: "Web Design Package", amount: "₦150,000" },
-            { name: "Logo & Brand Identity", amount: "₦50,000" },
-            { name: "SEO Setup", amount: "₦30,000" },
-          ].map((item) => (
-            <div key={item.name} className="flex items-center justify-between text-sm">
-              <span className="text-gray-500">{item.name}</span>
-              <span className="font-medium text-gray-800">{item.amount}</span>
-            </div>
-          ))}
-          <div className="flex items-center justify-between border-t border-gray-100 pt-3">
-            <span className="text-sm font-semibold text-gray-900">Total</span>
-            <span className="font-heading text-lg font-bold text-primary">₦230,000</span>
+      {/* Browser chrome */}
+      <div
+        className="relative overflow-hidden rounded-t-2xl border border-white/10 shadow-2xl"
+        style={{ background: "oklch(0.13 0.04 290)" }}
+      >
+        {/* Top bar */}
+        <div
+          className="flex items-center gap-3 border-b border-white/10 px-4 py-3"
+          style={{ background: "oklch(0.11 0.03 290)" }}
+        >
+          <div className="flex gap-1.5">
+            <div className="size-2.5 rounded-full bg-white/15" />
+            <div className="size-2.5 rounded-full bg-white/15" />
+            <div className="size-2.5 rounded-full bg-white/15" />
           </div>
-        </div>
-        <div className="px-5 pb-5">
-          <div className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary py-2.5 text-sm font-semibold text-white">
-            <CreditCard size={14} />
-            Pay Now via Paystack
+          <div className="mx-auto flex items-center gap-2 rounded-md bg-white/10 px-3 py-1 text-[11px] text-white/30">
+            <span
+              className="size-1.5 rounded-full"
+              style={{ background: "oklch(0.606 0.25 292.717)" }}
+            />
+            paytrack.app/dashboard
           </div>
+          <div className="w-16" />
         </div>
-      </div>
 
-      {/* Floating: payment received */}
-      <div className="absolute -bottom-5 -left-6 flex items-center gap-2.5 rounded-xl border border-gray-100 bg-white px-4 py-3 shadow-xl">
-        <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-green-100">
-          <CheckCircle size={15} className="text-green-600" />
-        </div>
-        <div>
-          <p className="text-xs font-semibold text-gray-900">Payment received!</p>
-          <p className="text-xs text-gray-400">₦230,000 · just now</p>
-        </div>
-      </div>
-
-      {/* Floating: WhatsApp reminder */}
-      <div className="absolute -right-5 -top-5 flex items-center gap-2 rounded-xl border border-gray-100 bg-white px-3 py-2.5 shadow-xl">
-        <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-green-500">
-          <MessageCircle size={12} className="text-white" />
-        </div>
-        <div>
-          <p className="text-xs font-semibold text-gray-900">Reminder sent</p>
-          <p className="text-xs text-gray-400">via WhatsApp</p>
+        {/* App content — DashboardPreview already dark-themed */}
+        <div className="p-5">
+          <DashboardPreview />
         </div>
       </div>
     </div>
   );
 }
 
-/* ─── Revenue SVG bar chart ─── */
-function RevenueChartGraphic() {
+/* ─── Invoice mockup card ─── */
+function InvoiceMockup() {
+  return (
+    <div className="relative w-full max-w-[340px]">
+      <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-xl">
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
+          <LogoFull markSize={22} textClassName="text-primary" />
+          <span className="rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-semibold text-amber-600 ring-1 ring-amber-200">
+            Pending
+          </span>
+        </div>
+
+        {/* Client info */}
+        <div className="border-b border-gray-100 px-5 py-4">
+          <p className="text-[11px] font-medium uppercase tracking-wide text-gray-400">
+            Invoice #PT-0042
+          </p>
+          <p className="mt-1 text-base font-semibold text-gray-900">
+            Acme Corp Ltd
+          </p>
+          <p className="text-xs text-gray-400">Due: 15 Jun 2025</p>
+        </div>
+
+        {/* Line items */}
+        <div className="space-y-2 px-5 py-4">
+          {[
+            { name: "Web Design Package", amount: "₦150,000" },
+            { name: "Logo & Brand Identity", amount: "₦50,000" },
+            { name: "SEO Setup", amount: "₦30,000" },
+          ].map((item) => (
+            <div
+              key={item.name}
+              className="flex items-center justify-between text-sm"
+            >
+              <span className="text-gray-500">{item.name}</span>
+              <span className="font-medium tabular-nums text-gray-800">
+                {item.amount}
+              </span>
+            </div>
+          ))}
+          <div className="flex items-center justify-between border-t border-gray-100 pt-3">
+            <span className="text-sm font-semibold text-gray-900">Total</span>
+            <span className="font-heading text-lg font-bold text-primary">
+              ₦230,000
+            </span>
+          </div>
+        </div>
+
+        {/* Pay button */}
+        <div className="px-5 pb-5">
+          <div className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-3 text-sm font-semibold text-white">
+            <CreditCard size={14} />
+            Pay Now via Paystack
+          </div>
+        </div>
+      </div>
+
+      {/* Floating chip — payment confirmed */}
+      <div className="absolute -bottom-4 -left-8 flex items-center gap-2.5 rounded-xl border border-gray-100 bg-white px-4 py-2.5 shadow-lg">
+        <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-green-100">
+          <CheckCircle size={13} className="text-green-600" />
+        </div>
+        <div>
+          <p className="text-xs font-semibold text-gray-900">
+            Payment received!
+          </p>
+          <p className="text-[11px] text-gray-400">₦230,000 · just now</p>
+        </div>
+      </div>
+
+      {/* Floating chip — WhatsApp reminder */}
+      <div className="absolute -right-8 -top-4 flex items-center gap-2 rounded-xl border border-gray-100 bg-white px-3 py-2.5 shadow-lg">
+        <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-green-500">
+          <MessageCircle size={12} className="text-white" />
+        </div>
+        <div>
+          <p className="text-xs font-semibold text-gray-900">Reminder sent</p>
+          <p className="text-[11px] text-gray-400">via WhatsApp</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Revenue bar chart (used in dark dashboard section) ─── */
+function RevenueChart() {
   const bars = [40, 65, 50, 80, 60, 95, 75, 110, 90, 130, 100, 150];
   const max = Math.max(...bars);
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/5 p-5 backdrop-blur-sm">
+    <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
       <div className="mb-4 flex items-center justify-between">
         <div>
           <p className="text-xs text-white/50">Total Revenue</p>
-          <p className="font-heading text-xl font-bold text-white">₦2,340,000</p>
+          <p className="font-heading text-xl font-bold text-white">
+            ₦2,340,000
+          </p>
         </div>
-        <div className="flex items-center gap-1 rounded-full bg-green-400/20 px-2.5 py-1 text-xs font-semibold text-green-400">
+        <div className="flex items-center gap-1.5 rounded-full bg-green-400/15 px-3 py-1 text-xs font-semibold text-green-400">
           <TrendingUp size={11} />
           +24%
         </div>
@@ -140,11 +167,10 @@ function RevenueChartGraphic() {
       <svg viewBox="0 0 240 80" className="w-full" preserveAspectRatio="none">
         {bars.map((h, i) => {
           const barH = (h / max) * 64;
-          const x = i * 20 + 2;
           return (
             <rect
               key={i}
-              x={x}
+              x={i * 20 + 2}
               y={80 - barH}
               width={14}
               height={barH}
@@ -152,13 +178,13 @@ function RevenueChartGraphic() {
               fill={
                 i === bars.length - 1
                   ? "oklch(0.606 0.25 292.717)"
-                  : "oklch(0.606 0.25 292.717 / 0.3)"
+                  : "oklch(0.606 0.25 292.717 / 0.28)"
               }
             />
           );
         })}
       </svg>
-      <div className="mt-3 flex items-center justify-between text-xs text-white/40">
+      <div className="mt-3 flex justify-between text-[11px] text-white/35">
         <span>Jan</span>
         <span>Apr</span>
         <span>Aug</span>
@@ -168,28 +194,30 @@ function RevenueChartGraphic() {
   );
 }
 
-/* ─── Dark-theme dashboard preview ─── */
+/* ─── Dashboard UI preview (dark section) ─── */
 function DashboardPreview() {
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-3 gap-3">
         {[
-          { label: "Paid", value: "₦1.2M", color: "text-green-400", bg: "bg-green-400/10 border-green-400/20" },
-          { label: "Outstanding", value: "₦480K", color: "text-amber-400", bg: "bg-amber-400/10 border-amber-400/20" },
-          { label: "Overdue", value: "₦120K", color: "text-red-400", bg: "bg-red-400/10 border-red-400/20" },
-        ].map(({ label, value, color, bg }) => (
-          <div key={label} className={`rounded-xl border ${bg} p-3 text-center`}>
+          { label: "Paid", value: "₦1.2M", color: "text-green-400", ring: "ring-green-400/20 bg-green-400/8" },
+          { label: "Outstanding", value: "₦480K", color: "text-amber-400", ring: "ring-amber-400/20 bg-amber-400/8" },
+          { label: "Overdue", value: "₦120K", color: "text-red-400", ring: "ring-red-400/20 bg-red-400/8" },
+        ].map(({ label, value, color, ring }) => (
+          <div key={label} className={`rounded-xl p-3 text-center ring-1 ${ring}`}>
             <p className={`font-heading text-sm font-bold ${color}`}>{value}</p>
-            <p className="text-xs text-white/50">{label}</p>
+            <p className="mt-0.5 text-[11px] text-white/45">{label}</p>
           </div>
         ))}
       </div>
-      <RevenueChartGraphic />
-      <div className="rounded-xl border border-white/10 bg-white/5 p-4 backdrop-blur-sm">
-        <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-white/40">
+
+      <RevenueChart />
+
+      <div className="rounded-xl border border-white/8 bg-white/5 p-4">
+        <p className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-white/35">
           Recent invoices
         </p>
-        <div className="space-y-2.5">
+        <div className="space-y-3">
           {[
             { client: "Zenith Bank Ltd", amount: "₦480,000", status: "Paid", sc: "text-green-400 bg-green-400/10" },
             { client: "Konga Online Shop", amount: "₦230,000", status: "Pending", sc: "text-amber-400 bg-amber-400/10" },
@@ -197,14 +225,16 @@ function DashboardPreview() {
           ].map(({ client, amount, status, sc }) => (
             <div key={client} className="flex items-center justify-between">
               <div className="flex items-center gap-2.5">
-                <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/30 text-xs font-bold text-primary-foreground">
+                <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-white/10 text-xs font-bold text-white/70">
                   {client[0]}
                 </div>
-                <p className="text-xs font-medium text-white/80">{client}</p>
+                <p className="text-xs font-medium text-white/75">{client}</p>
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold text-white/70">{amount}</span>
-                <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${sc}`}>
+                <span className="text-xs font-semibold tabular-nums text-white/60">
+                  {amount}
+                </span>
+                <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${sc}`}>
                   {status}
                 </span>
               </div>
@@ -220,251 +250,298 @@ function DashboardPreview() {
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen text-foreground">
+    <div className="min-h-screen bg-white text-foreground antialiased">
 
-      {/* ── Nav ── */}
+      {/* ── Nav — white, sits on the light hero ─── */}
       <header className="sticky top-0 z-50 border-b border-border/40 bg-white/90 backdrop-blur-sm">
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 sm:px-6">
-          <LogoFull markSize={32} textClassName="text-foreground" />
-          <nav className="flex items-center gap-2">
-            <Button variant="ghost" className="text-gray-900" size="sm" asChild>
+          <LogoFull markSize={28} textClassName="text-foreground" />
+          <nav className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-gray-600 hover:text-gray-900"
+              asChild
+            >
               <Link href="/sign-in">Sign in</Link>
             </Button>
-            <Button size="sm" asChild>
+            <Button size="sm" className="ml-1 rounded-full" asChild>
               <Link href="/sign-up">Get started free</Link>
             </Button>
           </nav>
         </div>
       </header>
 
-      {/* ════════════════════════════════════════
-          HERO  —  lavender gradient + dot grid
-      ════════════════════════════════════════ */}
+      {/* ── Hero — original lavender gradient, tight vertical rhythm ─── */}
       <section
         className="relative overflow-hidden"
         style={{
           background:
-            "linear-gradient(160deg, oklch(0.96 0.03 290) 0%, oklch(0.92 0.055 292) 50%, oklch(0.88 0.07 295) 100%)",
+            "linear-gradient(168deg, oklch(0.99 0.005 290) 0%, oklch(0.97 0.015 292) 55%, oklch(0.95 0.025 294) 100%)",
         }}
       >
-        <DotGrid className="-z-0 opacity-60" />
-
-        {/* Large radial glow centre */}
+        {/* Dot texture */}
         <div
           aria-hidden
-          className="pointer-events-none absolute left-1/2 top-0 -z-0 h-[700px] w-[700px] -translate-x-1/2 -translate-y-1/3 rounded-full opacity-25 blur-3xl"
-          style={{ background: "oklch(0.491 0.27 292.581)" }}
+          className="pointer-events-none absolute inset-0"
+          style={{
+            backgroundImage:
+              "radial-gradient(circle, oklch(0.491 0.27 292.581 / 0.06) 1.5px, transparent 1.5px)",
+            backgroundSize: "30px 30px",
+          }}
         />
 
-        <div className="relative mx-auto grid max-w-6xl items-center gap-14 px-4 py-20 sm:px-6 lg:grid-cols-2 lg:py-28">
-          {/* Copy */}
-          <div>
-            <Badge className="mb-5 gap-1.5 border border-primary/20 bg-white/60 px-3 py-1 text-xs text-primary backdrop-blur-sm">
-              <Zap size={11} />
-              Built for Nigerian freelancers &amp; SMEs
-            </Badge>
-            <h1 className="font-heading text-4xl font-bold leading-tight tracking-tight text-gray-900 sm:text-5xl lg:text-[3.25rem]">
-              Send invoices.{" "}
-              <span className="text-primary">Get paid in Naira.</span>
-              <br />
-              Stop chasing clients.
-            </h1>
-            <p className="mt-5 max-w-lg text-lg text-gray-600">
-              Create professional invoices in seconds, collect payment via
-              Paystack, and send automatic WhatsApp reminders — all from one
-              dashboard.
-            </p>
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Button size="lg" className="min-w-44 shadow-lg shadow-primary/30" asChild>
-                <Link href="/sign-up">
-                  Start for free <ArrowRight size={16} className="ml-1" />
-                </Link>
-              </Button>
-              <Button
-                size="lg"
-                variant="outline"
-                className="min-w-44 border-white/60 bg-white/50 backdrop-blur-sm hover:bg-white/70"
-                asChild
-              >
-                <Link href="/sign-in" className="text-gray-900">Sign in to dashboard</Link>
-              </Button>
-            </div>
-            <p className="mt-4 text-xs text-gray-500">
-              Free forever for up to 5 invoices · No credit card required
-            </p>
+        {/* Copy block — tight top padding so everything sits above the fold */}
+        <div className="relative mx-auto max-w-3xl px-4 pb-8 pt-8 text-center sm:px-6 sm:pt-10">
+          {/* Eyebrow */}
+          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-white/60 px-4 py-1.5 text-xs font-semibold text-primary backdrop-blur-sm">
+            <Zap size={10} className="shrink-0" />
+            Built for Nigerian freelancers &amp; SMEs
           </div>
 
-          {/* Invoice mockup */}
-          <div className="flex justify-center lg:justify-end">
-            <InvoiceMockup />
+          {/* Headline — two clean lines */}
+          <h1 className="font-heading text-[36px] font-black leading-[1.08] tracking-tight text-gray-900 sm:text-5xl lg:text-[52px]">
+            Get Paid Faster
+            <br />
+            <span className="whitespace-nowrap text-primary">Smart Tracking. Zero Hassle.</span>
+          </h1>
+
+          {/* Sub-headline — two lines, tight */}
+          <p className="mx-auto mt-4 max-w-lg text-base leading-relaxed text-gray-500 sm:text-[17px]">
+            Send branded invoices, collect payments via Paystack,
+            <br className="hidden sm:block" />
+            and automate WhatsApp reminders — all in one place.
+          </p>
+
+          {/* CTAs — pill-shaped */}
+          <div className="mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row">
+            <Button
+              size="lg"
+              variant="outline"
+              className="w-full rounded-full border-gray-300/70 bg-white/60 text-gray-700 backdrop-blur-sm hover:bg-white/90 sm:w-auto"
+              asChild
+            >
+              <Link href="/sign-in">Sign in</Link>
+            </Button>
+            <Button
+              size="lg"
+              className="w-full rounded-full shadow-md shadow-primary/20 transition-transform hover:scale-[1.02] active:scale-[0.99] sm:w-auto sm:min-w-44"
+              asChild
+            >
+              <Link href="/sign-up">Get started free</Link>
+            </Button>
           </div>
+
+          {/* Trust micro-copy */}
+          <p className="mt-4 text-xs text-gray-400">
+            Free for up to 5 invoices · No credit card required
+          </p>
         </div>
 
-        {/* Bottom fade into white */}
+        {/* Product frame — clipped so only top portion shows, fitting the viewport */}
+        <div className="relative mx-auto max-w-4xl overflow-hidden px-4 sm:px-6" style={{ maxHeight: "260px" }}>
+          <ProductFrame />
+        </div>
+
+        {/* Fade bottom edge into the white stats strip */}
         <div
           aria-hidden
-          className="pointer-events-none absolute bottom-0 left-0 right-0 h-24"
-          style={{
-            background: "linear-gradient(to bottom, transparent, white)",
-          }}
+          className="pointer-events-none absolute bottom-0 left-0 right-0 h-10"
+          style={{ background: "linear-gradient(to bottom, transparent, white 90%)" }}
         />
       </section>
 
-      {/* ════════════════════════════════════════
-          STATS STRIP  —  clean white
-      ════════════════════════════════════════ */}
-      <div className="border-y-2 border-border/80 bg-white">
-        <div className="mx-auto grid max-w-6xl grid-cols-3 divide-x divide-border/80 px-4 py-8 sm:px-6">
+      {/* ── Stats strip ─────────────────────────────────── */}
+      <div className="border-y border-gray-100 bg-white">
+        <div className="mx-auto grid max-w-6xl grid-cols-3 divide-x divide-gray-100 px-4 py-8 sm:px-6">
           {[
             { icon: FileText, value: "10,000+", label: "Invoices sent" },
             { icon: TrendingUp, value: "₦2.4B+", label: "Payments processed" },
             { icon: Users, value: "2,000+", label: "Businesses on PayTrack" },
           ].map(({ icon: Icon, value, label }) => (
-            <div key={label} className="flex flex-col items-center gap-1 px-4 text-center">
-              <Icon size={18} className="mb-1 text-primary" />
-              <p className="font-heading text-gray-900 text-2xl font-bold">{value}</p>
-              <p className="text-xs text-muted-foreground">{label}</p>
+            <div key={label} className="flex flex-col items-center gap-0.5 px-4 text-center">
+              <Icon size={16} className="mb-1.5 text-primary" />
+              <p className="font-heading text-2xl font-bold text-gray-900">{value}</p>
+              <p className="text-xs text-gray-400">{label}</p>
             </div>
           ))}
         </div>
       </div>
 
-      {/* ════════════════════════════════════════
-        FEATURES  —  white + subtle grid lines
-      ════════════════════════════════════════ */}
-      <section className="relative overflow-hidden bg-white py-20">
-        <GridLines />
-        {/* Faint top gradient */}
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0"
-          style={{
-            background:
-              "linear-gradient(to bottom, oklch(0.97 0.01 290 / 0.6) 0%, transparent 30%)",
-          }}
-        />
-        <div className="relative mx-auto max-w-6xl px-4 sm:px-6">
-          <div className="mb-12 text-center">
-            <h2 className="font-heading text-gray-950 text-3xl font-bold">
+      {/* ── Product showcase ─────────────────────────────── */}
+      {/*
+        This is the invoice mockup's home. Editorial split-layout:
+        UI on the left, copy on the right. White background, no texture,
+        no overlays — the card does the visual work.
+      */}
+      <section className="bg-white py-24 lg:py-32">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6">
+          <div className="grid items-center gap-16 lg:grid-cols-2">
+
+            {/* Mockup in a neutral container with room for the floating chips */}
+            <div className="flex items-center justify-center rounded-3xl bg-gray-50 px-16 py-20 ring-1 ring-gray-900/5">
+              <InvoiceMockup />
+            </div>
+
+            {/* Copy */}
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.15em] text-primary">
+                Invoicing
+              </p>
+              <h2 className="font-heading mt-3 text-3xl font-bold leading-[1.1] tracking-tight text-gray-900">
+                Send a professional invoice in under 60 seconds.
+              </h2>
+              <p className="mt-5 text-sm leading-relaxed text-gray-500">
+                Add your client once and PayTrack remembers them. Itemise your
+                services, set a due date, and hit send — a PDF and a Paystack
+                pay link go out immediately.
+              </p>
+
+              <ul className="mt-9 space-y-5">
+                {[
+                  {
+                    icon: FileText,
+                    title: "Branded PDF invoice",
+                    desc: "Your business name and itemised services, formatted and ready to download.",
+                  },
+                  {
+                    icon: CreditCard,
+                    title: "Instant payment link",
+                    desc: "Clients pay by card, bank transfer, or USSD — no account needed on their end.",
+                  },
+                  {
+                    icon: MessageCircle,
+                    title: "Automatic WhatsApp reminders",
+                    desc: "Polite nudges go out before and after the due date so you don't have to chase.",
+                  },
+                ].map(({ icon: Icon, title, desc }) => (
+                  <li key={title} className="flex gap-4">
+                    <div className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                      <Icon size={16} className="text-primary" />
+                    </div>
+                    <div>
+                      <p className="font-semibold text-gray-900">{title}</p>
+                      <p className="mt-0.5 text-sm leading-relaxed text-gray-500">{desc}</p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+
+              <div className="mt-10">
+                <Button size="lg" asChild>
+                  <Link href="/sign-up">
+                    Create your first invoice{" "}
+                    <ArrowRight size={15} className="ml-1.5" />
+                  </Link>
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Features grid ────────────────────────────────── */}
+      <section className="border-t border-gray-100 bg-gray-50 py-24">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6">
+          <div className="mb-14 max-w-xl">
+            <h2 className="font-heading text-3xl font-bold tracking-tight text-gray-900">
               Everything you need to get paid
             </h2>
-            <p className="mt-3 text-muted-foreground">One tool, zero spreadsheets.</p>
+            <p className="mt-3 text-gray-500">
+              One tool that handles the full payment cycle — from invoice to
+              bank account.
+            </p>
           </div>
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+
+          <div className="grid gap-px rounded-2xl bg-gray-200 overflow-hidden sm:grid-cols-2 lg:grid-cols-4">
             {[
               {
                 icon: FileText,
                 title: "Professional Invoices",
-                desc: "Generate branded PDF invoices with your business name and itemised line items in seconds.",
-                gradient: "from-violet-500/10 to-purple-500/5",
-                iconBg: "bg-violet-100",
+                desc: "Branded PDFs with line items, your business name, and a secure pay link — generated instantly.",
+                iconBg: "bg-violet-50",
                 iconColor: "text-violet-600",
               },
               {
                 icon: CreditCard,
                 title: "Paystack Payments",
-                desc: "One-click pay link in every invoice. Card, bank transfer, or USSD — you get credited instantly.",
-                gradient: "from-blue-500/10 to-cyan-500/5",
-                iconBg: "bg-blue-100",
+                desc: "Card, bank transfer, or USSD. Clients pay in one click and you're notified the moment funds land.",
+                iconBg: "bg-blue-50",
                 iconColor: "text-blue-600",
               },
               {
                 icon: MessageCircle,
                 title: "WhatsApp Reminders",
-                desc: "Automated nudges delivered to your client's WhatsApp. No more awkward follow-up calls.",
-                gradient: "from-green-500/10 to-emerald-500/5",
-                iconBg: "bg-green-100",
+                desc: "Automated nudges sent directly to your client's WhatsApp — before and after the due date.",
+                iconBg: "bg-green-50",
                 iconColor: "text-green-600",
               },
               {
                 icon: BarChart2,
                 title: "Revenue Dashboard",
-                desc: "Track outstanding, paid, and overdue invoices at a glance with charts that update in real time.",
-                gradient: "from-orange-500/10 to-amber-500/5",
-                iconBg: "bg-orange-100",
+                desc: "Paid, outstanding, and overdue — tracked in real time with charts that update as money moves.",
+                iconBg: "bg-orange-50",
                 iconColor: "text-orange-600",
               },
-            ].map(({ icon: Icon, title, desc, gradient, iconBg, iconColor }) => (
-              <div
-                key={title}
-                className={`rounded-xl border border-border bg-gradient-to-br ${gradient} p-6 shadow-sm`}
-              >
-                <div className={`mb-4 inline-flex size-11 items-center justify-center rounded-xl ${iconBg}`}>
-                  <Icon size={20} className={iconColor} />
+            ].map(({ icon: Icon, title, desc, iconBg, iconColor }) => (
+              <div key={title} className="flex flex-col gap-4 bg-white p-8">
+                <div className={`inline-flex size-10 items-center justify-center rounded-xl ${iconBg}`}>
+                  <Icon size={18} className={iconColor} />
                 </div>
-                <h3 className="font-heading text-gray-900 mb-2 font-semibold">{title}</h3>
-                <p className="text-sm text-muted-foreground">{desc}</p>
+                <div>
+                  <h3 className="font-semibold text-gray-900">{title}</h3>
+                  <p className="mt-1.5 text-sm leading-relaxed text-gray-500">{desc}</p>
+                </div>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ════════════════════════════════════════
-          DASHBOARD PREVIEW  —  DARK section
-      ════════════════════════════════════════ */}
+      {/* ── Dashboard preview (dark) ─────────────────────── */}
       <section
-        className="relative overflow-hidden py-20"
+        className="py-24 lg:py-32"
         style={{
           background:
-            "linear-gradient(135deg, oklch(0.13 0.04 290) 0%, oklch(0.17 0.06 295) 50%, oklch(0.13 0.04 290) 100%)",
+            "linear-gradient(160deg, oklch(0.12 0.04 288) 0%, oklch(0.16 0.07 294) 100%)",
         }}
       >
-        {/* Dot grid on dark */}
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0"
-          style={{
-            backgroundImage:
-              "radial-gradient(circle, oklch(0.491 0.27 292.581 / 0.25) 1.5px, transparent 1.5px)",
-            backgroundSize: "28px 28px",
-          }}
-        />
-        {/* Glow orbs */}
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -right-40 top-0 h-[500px] w-[500px] rounded-full opacity-20 blur-3xl"
-          style={{ background: "oklch(0.541 0.281 293.009)" }}
-        />
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -left-20 bottom-0 h-72 w-72 rounded-full opacity-15 blur-3xl"
-          style={{ background: "oklch(0.606 0.25 292.717)" }}
-        />
-
-        <div className="relative mx-auto max-w-6xl px-4 sm:px-6">
-          <div className="grid items-center gap-12 lg:grid-cols-2">
-            {/* Copy — light text on dark */}
+        <div className="mx-auto max-w-6xl px-4 sm:px-6">
+          <div className="grid items-center gap-14 lg:grid-cols-2">
+            {/* Copy */}
             <div>
-              <Badge className="mb-4 border-white/10 bg-white/10 text-xs text-white/80">
-                Live dashboard
-              </Badge>
-              <h2 className="font-heading text-3xl font-bold text-white">
+              <p className="text-xs font-bold uppercase tracking-[0.15em] text-primary">
+                Analytics
+              </p>
+              <h2 className="font-heading mt-3 text-4xl font-bold leading-[1.1] tracking-tight text-white">
                 Your entire business,
                 <br />
                 one screen.
               </h2>
-              <p className="mt-4 text-white/60">
+              <p className="mt-5 text-lg leading-relaxed text-white/55">
                 See exactly where your money is — paid, outstanding, and overdue
                 — with real-time charts and an invoice table that never needs
                 refreshing.
               </p>
-              <ul className="mt-6 space-y-3 text-sm">
+              <ul className="mt-8 space-y-3.5 text-sm">
                 {[
                   "Revenue trend chart with monthly breakdown",
                   "Instant status updates when clients pay",
                   "One-click PDF download for any invoice",
                   "Client history and total spend at a glance",
                 ].map((f) => (
-                  <li key={f} className="flex items-start gap-2.5">
+                  <li key={f} className="flex items-start gap-3">
                     <CheckCircle size={15} className="mt-0.5 shrink-0 text-primary" />
                     <span className="text-white/60">{f}</span>
                   </li>
                 ))}
               </ul>
-              <Button className="mt-8" asChild>
+              <Button
+                className="mt-10 bg-white text-gray-900 hover:bg-white/90"
+                asChild
+              >
                 <Link href="/sign-up">
-                  Try it free <ArrowRight size={15} className="ml-1" />
+                  Try it free <ArrowRight size={15} className="ml-1.5" />
                 </Link>
               </Button>
             </div>
@@ -475,91 +552,96 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ════════════════════════════════════════
-          HOW IT WORKS  —  light lavender tint
-      ════════════════════════════════════════ */}
-      <section
-        className="relative overflow-hidden py-20"
-        style={{
-          background:
-            "linear-gradient(180deg, oklch(0.97 0.015 290) 0%, oklch(0.99 0.005 290) 100%)",
-        }}
-      >
-        <GridLines className="opacity-50" />
-        <div className="relative mx-auto max-w-6xl px-4 sm:px-6">
-          <div className="mb-12 text-center">
-            <h2 className="font-heading text-gray-900 text-3xl font-bold">How it works</h2>
-            <p className="mt-3 text-muted-foreground">From zero to paid in three steps.</p>
+      {/* ── How it works ─────────────────────────────────── */}
+      <section className="border-t border-gray-100 bg-white py-24">
+        <div className="mx-auto max-w-5xl px-4 sm:px-6">
+          <div className="mb-16 text-center">
+            <h2 className="font-heading text-3xl font-bold tracking-tight text-gray-900">
+              How it works
+            </h2>
+            <p className="mt-3 text-gray-500">From zero to paid in three steps.</p>
           </div>
-          <div className="grid gap-8 sm:grid-cols-3">
+
+          <div className="flex flex-col gap-8 sm:flex-row sm:gap-0">
             {[
               {
                 icon: Users,
+                step: "01",
                 title: "Add your client",
-                desc: "Enter the client's name, email, and phone number once. PayTrack saves them for every future invoice.",
+                desc: "Enter a name, email, and phone number once. PayTrack remembers them for every future invoice.",
               },
               {
                 icon: FileText,
+                step: "02",
                 title: "Create an invoice",
-                desc: "Add line items, set a due date, and hit send. A branded PDF and a secure pay link are generated instantly.",
+                desc: "Add line items, set a due date, and hit send. A branded PDF and pay link go out instantly.",
               },
               {
                 icon: CreditCard,
+                step: "03",
                 title: "Collect payment",
-                desc: "Your client pays via Paystack. You're notified immediately and the invoice is marked paid in your dashboard.",
+                desc: "Your client pays via Paystack. You're notified the moment it lands and the invoice marks itself paid.",
               },
-            ].map(({ icon: Icon, title, desc }, i) => (
-              <div key={title} className="relative flex flex-col items-start">
-                {i < 2 && (
-                  <div className="absolute left-[calc(50%+2rem)] top-6 hidden h-0.5 w-[calc(100%-4rem)] bg-border sm:block" />
-                )}
-                <div className="relative mb-4 flex size-12 items-center justify-center rounded-2xl border-2 border-primary/20 bg-white shadow-sm">
-                  <Icon size={20} className="text-primary" />
-                  <span className="absolute -right-2 -top-2 flex size-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-white">
-                    {i + 1}
-                  </span>
+            ].map(({ icon: Icon, step, title, desc }, i) => (
+              <>
+                <div
+                  key={title}
+                  className="flex flex-1 flex-col items-center px-6 text-center"
+                >
+                  {/* Step circle */}
+                  <div className="relative mb-6 flex size-14 items-center justify-center rounded-2xl bg-primary/8 ring-1 ring-primary/15">
+                    <Icon size={22} className="text-primary" />
+                    <span className="absolute -right-2 -top-2 flex size-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold leading-none text-white">
+                      {i + 1}
+                    </span>
+                  </div>
+                  <p className="mb-1 text-[11px] font-bold uppercase tracking-widest text-gray-300">
+                    {step}
+                  </p>
+                  <h3 className="font-heading mb-2 font-semibold text-gray-900">
+                    {title}
+                  </h3>
+                  <p className="text-sm leading-relaxed text-gray-500">{desc}</p>
                 </div>
-                <h3 className="font-heading text-gray-800 mb-2 font-semibold">{title}</h3>
-                <p className="text-sm text-muted-foreground">{desc}</p>
-              </div>
+
+                {/* Connector — perfectly centred on icon (mt = half of icon height 56px / 2 = 28px) */}
+                {i < 2 && (
+                  <div
+                    className="hidden shrink-0 items-start sm:flex"
+                    style={{ marginTop: "28px" }}
+                  >
+                    <div className="w-8 border-t border-dashed border-gray-300" />
+                  </div>
+                )}
+              </>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ════════════════════════════════════════
-          PRICING  —  white with faint gradient
-      ════════════════════════════════════════ */}
-      <section
-        className="relative overflow-hidden py-20"
-        style={{
-          background:
-            "linear-gradient(180deg, white 0%, oklch(0.96 0.025 290) 100%)",
-        }}
-      >
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0"
-          style={{
-            backgroundImage:
-              "radial-gradient(circle, oklch(0.491 0.27 292.581 / 0.08) 1px, transparent 1px)",
-            backgroundSize: "36px 36px",
-          }}
-        />
-        <div className="relative mx-auto max-w-6xl px-4 sm:px-6">
-          <div className="mb-12 text-center">
-            <h2 className="font-heading text-gray-950 text-3xl font-bold">Simple pricing</h2>
-            <p className="mt-3 text-muted-foreground">Start free. Upgrade when you grow.</p>
+      {/* ── Pricing ──────────────────────────────────────── */}
+      <section className="border-t border-gray-100 bg-gray-50 py-24">
+        <div className="mx-auto max-w-4xl px-4 sm:px-6">
+          <div className="mb-14 text-center">
+            <h2 className="font-heading text-3xl font-bold tracking-tight text-gray-900">
+              Simple, honest pricing
+            </h2>
+            <p className="mt-3 text-gray-500">Start free. Upgrade when you grow.</p>
           </div>
-          <div className="mx-auto grid max-w-2xl gap-6 sm:grid-cols-2">
-            {/* Free */}
-            <div className="rounded-xl border border-border bg-white p-8 shadow-sm">
-              <p className="font-heading text-sm font-semibold uppercase tracking-widest text-muted-foreground">
+
+          <div className="grid gap-6 sm:grid-cols-2">
+            {/* Free tier */}
+            <div className="flex flex-col rounded-2xl bg-white p-8 ring-1 ring-gray-200">
+              <p className="text-xs font-bold uppercase tracking-[0.12em] text-gray-400">
                 Free
               </p>
-              <p className="font-heading text-gray-950 mt-2 text-4xl font-bold">₦0</p>
-              <p className="mt-1 text-sm text-muted-foreground">Forever</p>
-              <ul className="mt-6 space-y-3 text-gray-950 text-sm">
+              <div className="mt-3 flex items-end gap-1">
+                <span className="font-heading text-2xl font-black tracking-tight text-gray-900">
+                  ₦0
+                </span>
+                <span className="mb-1.5 text-sm text-gray-400">/ forever</span>
+              </div>
+              <ul className="mt-8 flex-1 space-y-3 text-sm">
                 {[
                   "Up to 5 invoices",
                   "PDF invoice generation",
@@ -567,19 +649,19 @@ export default function LandingPage() {
                   "Client management",
                   "Basic dashboard",
                 ].map((f) => (
-                  <li key={f} className="flex items-center gap-2">
-                    <CheckCircle size={15} className="shrink-0 text-primary" />
+                  <li key={f} className="flex items-center gap-2.5 text-gray-600">
+                    <CheckCircle size={14} className="shrink-0 text-primary" />
                     {f}
                   </li>
                 ))}
               </ul>
-              <Button className="mt-8 w-full text-gray-950" variant="outline" asChild>
-                <Link href="/sign-up" className="text-gray-900">Get started</Link>
+              <Button variant="outline" className="mt-8 w-full" asChild>
+                <Link href="/sign-up">Get started</Link>
               </Button>
             </div>
 
-            {/* Pro */}
-            <div className="relative overflow-hidden rounded-xl border-2 border-primary bg-white p-8 shadow-lg shadow-primary/10">
+            {/* Pro tier */}
+            <div className="relative flex flex-col overflow-hidden rounded-2xl border-2 border-primary bg-white p-8 shadow-lg shadow-primary/10">
               <div
                 aria-hidden
                 className="pointer-events-none absolute inset-0 opacity-[0.07]"
@@ -594,9 +676,9 @@ export default function LandingPage() {
               <p className="font-heading text-sm font-semibold uppercase tracking-widest text-muted-foreground">
                 Pro
               </p>
-              <p className="font-heading mt-2 text-gray-950 text-4xl font-bold">₦5,000</p>
+              <p className="font-heading mt-2 text-4xl font-bold text-gray-950">₦5,000</p>
               <p className="mt-1 text-sm text-muted-foreground">per month</p>
-              <ul className="mt-6 space-y-3 text-gray-900 text-sm">
+              <ul className="mt-6 flex-1 space-y-3 text-sm">
                 {[
                   "Unlimited invoices",
                   "WhatsApp payment reminders",
@@ -604,7 +686,7 @@ export default function LandingPage() {
                   "Revenue analytics & charts",
                   "Priority support",
                 ].map((f) => (
-                  <li key={f} className="flex items-center text-gray-900 gap-2">
+                  <li key={f} className="flex items-center gap-2 text-gray-900">
                     <CheckCircle size={15} className="shrink-0 text-primary" />
                     {f}
                   </li>
@@ -618,84 +700,125 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ════════════════════════════════════════
-          CTA  —  vivid deep-purple gradient
-      ════════════════════════════════════════ */}
+      {/* ── Final CTA ─────────────────────────────────────── */}
       <section
-        className="relative overflow-hidden py-28"
+        className="py-28"
         style={{
           background:
-            "linear-gradient(135deg, oklch(0.18 0.08 295) 0%, oklch(0.28 0.15 292) 40%, oklch(0.20 0.10 285) 100%)",
+            "linear-gradient(160deg, oklch(0.18 0.08 295) 0%, oklch(0.26 0.14 292) 50%, oklch(0.19 0.09 287) 100%)",
         }}
       >
-        {/* Dot grid */}
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0"
-          style={{
-            backgroundImage:
-              "radial-gradient(circle, oklch(1 0 0 / 0.07) 1.5px, transparent 1.5px)",
-            backgroundSize: "28px 28px",
-          }}
-        />
-        {/* Glow orbs */}
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -top-20 left-1/4 h-96 w-96 rounded-full opacity-30 blur-3xl"
-          style={{ background: "oklch(0.541 0.281 293.009)" }}
-        />
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -bottom-20 right-1/4 h-80 w-80 rounded-full opacity-20 blur-3xl"
-          style={{ background: "oklch(0.432 0.232 292.759)" }}
-        />
-
-        <div className="relative mx-auto max-w-2xl px-4 text-center sm:px-6">
-          <div className="mb-5 flex justify-center">
-            <div className="inline-flex size-16 items-center justify-center rounded-2xl border border-white/10 bg-white/10 backdrop-blur-sm">
-              <Clock size={28} className="text-white" />
-            </div>
+        <div className="mx-auto max-w-2xl px-4 text-center sm:px-6">
+          <div className="mb-6 inline-flex size-14 items-center justify-center rounded-2xl bg-white/10 ring-1 ring-white/15">
+            <Clock size={26} className="text-white" />
           </div>
-          <h2 className="font-heading text-3xl font-bold text-white sm:text-4xl">
+          <h2 className="font-heading text-3xl font-black tracking-tight text-white">
             Ready to get paid faster?
           </h2>
-          <p className="mt-4 text-white/60">
-            Join thousands of Nigerian freelancers and small businesses already
-            using PayTrack to manage their invoices and get paid on time.
+          <p className="mx-auto mt-5 max-w-md text-base text-white/55">
+            Join thousands of Nigerian freelancers and businesses already using
+            PayTrack to manage invoices and get paid on time.
           </p>
           <Button
             size="lg"
-            className="mt-8 min-w-48 bg-white font-semibold text-primary shadow-xl hover:bg-white/90"
+            className="mt-10 bg-white px-8 font-semibold text-primary shadow-xl transition-transform hover:scale-[1.02] hover:bg-white/95 active:scale-[0.99]"
             asChild
           >
             <Link href="/sign-up">
-              Create your free account <ArrowRight size={16} className="ml-1" />
+              Create your free account{" "}
+              <ArrowRight size={16} className="ml-1.5" />
             </Link>
           </Button>
         </div>
       </section>
 
-      {/* ════════════════════════════════════════
-          FOOTER  —  dark (continues from CTA)
-      ════════════════════════════════════════ */}
-      <footer
-        style={{
-          background: "oklch(0.12 0.03 290)",
-        }}
-        className="py-8"
-      >
-        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-3 px-4 text-sm sm:flex-row sm:px-6">
-          <LogoFull markSize={28} textClassName="text-white" />
-          <p className="text-white/40">
-            © {new Date().getFullYear()} PayTrack. Built for Nigerian businesses.
-          </p>
-          <div className="flex gap-4 text-white/50">
-            <Link href="/sign-in" className="transition-colors hover:text-white">
-              Sign in
-            </Link>
-            <Link href="/sign-up" className="transition-colors hover:text-white">
-              Sign up
-            </Link>
+      {/* ── Footer ───────────────────────────────────────── */}
+      <footer style={{ background: "oklch(0.10 0.03 290)" }}>
+        <div className="mx-auto max-w-6xl px-4 sm:px-6">
+          <div className="grid gap-10 py-14 sm:grid-cols-2 lg:grid-cols-4">
+            {/* Brand */}
+            <div className="sm:col-span-2 lg:col-span-1">
+              <LogoFull markSize={28} textClassName="text-white" />
+              <p className="mt-4 max-w-xs text-sm leading-relaxed text-white/40">
+                Invoice, collect, and track payments — built for Nigerian
+                freelancers and small businesses.
+              </p>
+            </div>
+
+            {/* Product */}
+            <div>
+              <h4 className="mb-4 text-xs font-bold uppercase tracking-widest text-white/40">
+                Product
+              </h4>
+              <ul className="space-y-2.5 text-sm">
+                {[
+                  { label: "Features", href: "#" },
+                  { label: "Pricing", href: "#" },
+                  { label: "How it works", href: "#" },
+                  { label: "Dashboard", href: "/dashboard" },
+                ].map(({ label, href }) => (
+                  <li key={label}>
+                    <Link
+                      href={href}
+                      className="text-white/40 transition-colors hover:text-white"
+                    >
+                      {label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Account */}
+            <div>
+              <h4 className="mb-4 text-xs font-bold uppercase tracking-widest text-white/40">
+                Account
+              </h4>
+              <ul className="space-y-2.5 text-sm">
+                {[
+                  { label: "Sign in", href: "/sign-in" },
+                  { label: "Sign up free", href: "/sign-up" },
+                  { label: "Reset password", href: "/sign-in" },
+                ].map(({ label, href }) => (
+                  <li key={label}>
+                    <Link
+                      href={href}
+                      className="text-white/40 transition-colors hover:text-white"
+                    >
+                      {label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Legal */}
+            <div>
+              <h4 className="mb-4 text-xs font-bold uppercase tracking-widest text-white/40">
+                Legal
+              </h4>
+              <ul className="space-y-2.5 text-sm">
+                {[
+                  { label: "Privacy Policy", href: "#" },
+                  { label: "Terms of Service", href: "#" },
+                  { label: "Cookie Policy", href: "#" },
+                ].map(({ label, href }) => (
+                  <li key={label}>
+                    <Link
+                      href={href}
+                      className="text-white/40 transition-colors hover:text-white"
+                    >
+                      {label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+
+          <div className="flex flex-col items-center justify-between gap-3 border-t border-white/8 py-6 text-xs text-white/25 sm:flex-row">
+            <p>© {new Date().getFullYear()} PayTrack. Built for Nigerian businesses.</p>
+            <p>Made with ♥ in Nigeria</p>
           </div>
         </div>
       </footer>
