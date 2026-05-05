@@ -33,7 +33,7 @@ export function Topbar() {
 
   async function handleSignOut() {
     await signOut();
-    router.replace("/sign-in");
+    router.replace("/");
   }
 
   return (
