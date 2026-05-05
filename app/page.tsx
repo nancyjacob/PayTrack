@@ -247,7 +247,7 @@ export default function LandingPage() {
             "linear-gradient(160deg, oklch(0.96 0.03 290) 0%, oklch(0.92 0.055 292) 50%, oklch(0.88 0.07 295) 100%)",
         }}
       >
-        <DotGrid className="[-z-0] opacity-60" />
+        <DotGrid className="-z-0 opacity-60" />
 
         {/* Large radial glow centre */}
         <div
@@ -313,8 +313,8 @@ export default function LandingPage() {
       {/* ════════════════════════════════════════
           STATS STRIP  —  clean white
       ════════════════════════════════════════ */}
-      <div className="border-y border-border/60 bg-white">
-        <div className="mx-auto grid max-w-6xl grid-cols-3 divide-x divide-border/60 px-4 py-8 sm:px-6">
+      <div className="border-y-2 border-border/80 bg-white">
+        <div className="mx-auto grid max-w-6xl grid-cols-3 divide-x divide-border/80 px-4 py-8 sm:px-6">
           {[
             { icon: FileText, value: "10,000+", label: "Invoices sent" },
             { icon: TrendingUp, value: "₦2.4B+", label: "Payments processed" },
@@ -330,7 +330,7 @@ export default function LandingPage() {
       </div>
 
       {/* ════════════════════════════════════════
-          FEATURES  —  white + subtle grid lines
+        FEATURES  —  white + subtle grid lines
       ════════════════════════════════════════ */}
       <section className="relative overflow-hidden bg-white py-20">
         <GridLines />
@@ -594,9 +594,9 @@ export default function LandingPage() {
               <p className="font-heading text-sm font-semibold uppercase tracking-widest text-muted-foreground">
                 Pro
               </p>
-              <p className="font-heading mt-2 text-4xl font-bold">₦5,000</p>
+              <p className="font-heading mt-2 text-gray-950 text-4xl font-bold">₦5,000</p>
               <p className="mt-1 text-sm text-muted-foreground">per month</p>
-              <ul className="mt-6 space-y-3 text-sm">
+              <ul className="mt-6 space-y-3 text-gray-900 text-sm">
                 {[
                   "Unlimited invoices",
                   "WhatsApp payment reminders",
@@ -604,7 +604,7 @@ export default function LandingPage() {
                   "Revenue analytics & charts",
                   "Priority support",
                 ].map((f) => (
-                  <li key={f} className="flex items-center gap-2">
+                  <li key={f} className="flex items-center text-gray-900 gap-2">
                     <CheckCircle size={15} className="shrink-0 text-primary" />
                     {f}
                   </li>
