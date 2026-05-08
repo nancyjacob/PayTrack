@@ -453,7 +453,7 @@ export default function LandingPage() {
             </p>
           </div>
 
-          <div className="grid gap-px rounded-2xl bg-gray-200 overflow-hidden sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
             {[
               {
                 icon: FileText,
@@ -484,7 +484,7 @@ export default function LandingPage() {
                 iconColor: "text-orange-600",
               },
             ].map(({ icon: Icon, title, desc, iconBg, iconColor }) => (
-              <div key={title} className="flex flex-col gap-4 bg-white p-8">
+              <div key={title} className="flex flex-col gap-4 rounded-2xl border border-gray-200 bg-white p-8 shadow-sm">
                 <div className={`inline-flex size-10 items-center justify-center rounded-xl ${iconBg}`}>
                   <Icon size={18} className={iconColor} />
                 </div>

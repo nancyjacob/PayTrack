@@ -97,24 +97,115 @@ export const getDashboardStats = query({
       .withIndex("by_userId", (q) => q.eq("userId", userId))
       .collect();
 
-    const totalRevenue = invoices
-      .filter((i) => i.status === "paid")
-      .reduce((sum, i) => sum + i.total, 0);
+    const paidInvoices = invoices.filter((i) => i.status === "paid");
+    const overdueInvoices = invoices.filter((i) => i.status === "overdue");
+    const sentInvoices = invoices.filter((i) => i.status === "sent");
+    const draftInvoices = invoices.filter((i) => i.status === "draft");
 
-    const outstanding = invoices
-      .filter((i) => i.status === "sent" || i.status === "overdue")
-      .reduce((sum, i) => sum + i.total, 0);
-
-    const overdueCount = invoices.filter((i) => i.status === "overdue").length;
-    const paidCount = invoices.filter((i) => i.status === "paid").length;
+    const totalRevenue = paidInvoices.reduce((sum, i) => sum + i.total, 0);
+    const outstanding = [...sentInvoices, ...overdueInvoices].reduce((sum, i) => sum + i.total, 0);
+    const overdueCount = overdueInvoices.length;
+    const paidCount = paidInvoices.length;
 
     const sixMonthsAgo = Date.now() - 6 * 30 * 24 * 60 * 60 * 1000;
-    const recentPaid = invoices.filter(
-      (i) => i.status === "paid" && i.paidAt && i.paidAt > sixMonthsAgo
-    );
+    const recentPaid = paidInvoices.filter((i) => i.paidAt && i.paidAt > sixMonthsAgo);
     const monthlyData = buildMonthlyRevenue(recentPaid);
 
-    return { totalRevenue, outstanding, overdueCount, paidCount, monthlyData };
+    // Collection rate
+    const collectableDenominator = paidCount + sentInvoices.length + overdueCount;
+    const collectionRate = collectableDenominator > 0
+      ? Math.round((paidCount / collectableDenominator) * 100)
+      : 0;
+
+    // Average invoice value (kobo)
+    const avgInvoiceValue = paidCount > 0 ? Math.round(totalRevenue / paidCount) : 0;
+
+    // Overdue amount (kobo)
+    const overdueAmount = overdueInvoices.reduce((sum, i) => sum + i.total, 0);
+
+    // Tax collected on paid invoices (kobo)
+    const taxCollected = paidInvoices.reduce((sum, i) => sum + i.tax, 0);
+
+    // Month-over-month growth
+    const now = new Date();
+    const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+    const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1).getTime();
+    const thisMonthRevenue = paidInvoices
+      .filter((i) => i.paidAt && i.paidAt >= thisMonthStart)
+      .reduce((sum, i) => sum + i.total, 0);
+    const lastMonthRevenue = paidInvoices
+      .filter((i) => i.paidAt && i.paidAt >= lastMonthStart && i.paidAt < thisMonthStart)
+      .reduce((sum, i) => sum + i.total, 0);
+    const momGrowth: number | null = lastMonthRevenue > 0
+      ? Math.round(((thisMonthRevenue - lastMonthRevenue) / lastMonthRevenue) * 100)
+      : null;
+
+    // Average days to pay
+    const daysToPayList = paidInvoices
+      .filter((i) => i.paidAt)
+      .map((i) => (i.paidAt! - i.issueDate) / (1000 * 60 * 60 * 24));
+    const avgDaysToPay = daysToPayList.length > 0
+      ? Math.round(daysToPayList.reduce((s, d) => s + d, 0) / daysToPayList.length)
+      : 0;
+
+    // Status breakdown
+    const statusBreakdown = {
+      draft: draftInvoices.length,
+      sent: sentInvoices.length,
+      paid: paidCount,
+      overdue: overdueCount,
+    };
+
+    // Top 5 clients by paid revenue
+    const clientTotals: Record<string, number> = {};
+    for (const inv of paidInvoices) {
+      const key = inv.clientId as string;
+      clientTotals[key] = (clientTotals[key] ?? 0) + inv.total;
+    }
+    const topClientIds = Object.entries(clientTotals)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5);
+    const topClients = await Promise.all(
+      topClientIds.map(async ([clientId, totalPaid]) => {
+        const client = await ctx.db.get(clientId as Id<"clients">);
+        return { clientId, name: client?.name ?? "Unknown", totalPaid };
+      })
+    );
+
+    // Payment channel breakdown
+    const payments = await ctx.db
+      .query("payments")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .collect();
+    const channelMap: Record<string, { count: number; amount: number }> = {};
+    for (const p of payments) {
+      const ch = p.channel ?? "other";
+      if (!channelMap[ch]) channelMap[ch] = { count: 0, amount: 0 };
+      channelMap[ch].count += 1;
+      channelMap[ch].amount += p.amount;
+    }
+    const channelBreakdown = Object.entries(channelMap).map(([channel, v]) => ({
+      channel,
+      count: v.count,
+      amount: v.amount,
+    }));
+
+    return {
+      totalRevenue,
+      outstanding,
+      overdueCount,
+      paidCount,
+      monthlyData,
+      collectionRate,
+      avgInvoiceValue,
+      overdueAmount,
+      taxCollected,
+      momGrowth,
+      avgDaysToPay,
+      statusBreakdown,
+      topClients,
+      channelBreakdown,
+    };
   },
 });
 

@@ -4,6 +4,9 @@ import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { KPICards } from "@/components/dashboard/KPICards";
 import { RevenueChart } from "@/components/dashboard/RevenueChart";
+import { InvoiceStatusChart } from "@/components/dashboard/InvoiceStatusChart";
+import { TopClientsTable } from "@/components/dashboard/TopClientsTable";
+import { PaymentChannelChart } from "@/components/dashboard/PaymentChannelChart";
 import { InvoiceTable } from "@/components/invoice/InvoiceTable";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
@@ -12,6 +15,7 @@ import { Plus } from "lucide-react";
 export default function DashboardPage() {
   const profile = useQuery(api.users.getMyProfile);
   const recentInvoices = useQuery(api.invoices.listInvoices, {});
+  const stats = useQuery(api.invoices.getDashboardStats);
 
   const lastName5 = recentInvoices?.slice(0, 5) ?? [];
 
@@ -38,6 +42,17 @@ export default function DashboardPage() {
 
       <KPICards />
       <RevenueChart />
+
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+        <InvoiceStatusChart
+          breakdown={
+            stats?.statusBreakdown ?? { draft: 0, sent: 0, paid: 0, overdue: 0 }
+          }
+        />
+        <TopClientsTable clients={stats?.topClients ?? []} />
+      </div>
+
+      <PaymentChannelChart channels={stats?.channelBreakdown ?? []} />
 
       <div>
         <div className="flex items-center justify-between mb-3">

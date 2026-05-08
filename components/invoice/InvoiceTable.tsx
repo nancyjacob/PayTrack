@@ -10,9 +10,10 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Card, CardContent } from "@/components/ui/card";
 import { InvoiceStatusBadge } from "./InvoiceStatusBadge";
 import { formatNaira, formatDate, type InvoiceStatus } from "@/lib/utils";
-import { Eye, Send, Trash2 } from "lucide-react";
+import { Eye, Send, Trash2, FileText, Plus } from "lucide-react";
 import Link from "next/link";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -69,12 +70,26 @@ export function InvoiceTable({ invoices, loading }: Props) {
 
   if (invoices.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-16 text-center">
-        <p className="text-muted-foreground">No invoices yet</p>
-        <Button asChild className="mt-4">
-          <Link href="/invoices/new">Create your first invoice</Link>
-        </Button>
-      </div>
+      <Card className="border-dashed">
+        <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+          <div className="mb-4 flex size-14 items-center justify-center rounded-full bg-muted">
+            <FileText size={22} className="text-muted-foreground" />
+          </div>
+          <h3 className="text-base font-semibold text-foreground">
+            No invoices yet
+          </h3>
+          <p className="mt-1.5 max-w-xs text-sm text-muted-foreground">
+            Create your first invoice to start tracking payments and get paid
+            faster.
+          </p>
+          <Button asChild className="mt-6">
+            <Link href="/invoices/new">
+              <Plus size={15} />
+              Create your first invoice
+            </Link>
+          </Button>
+        </CardContent>
+      </Card>
     );
   }
 

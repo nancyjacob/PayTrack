@@ -13,6 +13,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
+import { TrendingUp } from "lucide-react";
 
 export function RevenueChart() {
   const stats = useQuery(api.invoices.getDashboardStats);
@@ -38,8 +39,16 @@ export function RevenueChart() {
       </CardHeader>
       <CardContent>
         {data.length === 0 ? (
-          <div className="flex h-60 items-center justify-center text-sm text-muted-foreground">
-            No paid invoices yet. Revenue will appear here once invoices are paid.
+          <div className="flex h-60 flex-col items-center justify-center gap-3 text-center">
+            <div className="flex size-12 items-center justify-center rounded-full bg-muted">
+              <TrendingUp size={20} className="text-muted-foreground" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-foreground">No revenue data yet</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Revenue will appear here once invoices are paid.
+              </p>
+            </div>
           </div>
         ) : (
           <ResponsiveContainer width="100%" height={240}>
