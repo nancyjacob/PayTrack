@@ -2,7 +2,7 @@
 
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,11 +18,97 @@ import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
+import { Upload, X } from "lucide-react";
+
+type BrandFont = "Helvetica" | "Times-Roman" | "Courier";
 
 type Profile = NonNullable<ReturnType<typeof useQuery<typeof api.users.getMyProfile>>>;
 
+const FONT_OPTIONS: { value: BrandFont; label: string; css: string }[] = [
+  { value: "Helvetica", label: "Sans", css: "sans-serif" },
+  { value: "Times-Roman", label: "Serif", css: "serif" },
+  { value: "Courier", label: "Mono", css: "monospace" },
+];
+
+function BrandPreview({
+  businessName,
+  color,
+  font,
+  footer,
+  logoUrl,
+}: {
+  businessName: string;
+  color: string;
+  font: BrandFont;
+  footer: string;
+  logoUrl: string | null | undefined;
+}) {
+  const cssFont = FONT_OPTIONS.find((f) => f.value === font)?.css ?? "sans-serif";
+
+  return (
+    <div
+      className="rounded-lg border bg-white p-5 text-[11px] shadow-sm select-none"
+      style={{ fontFamily: cssFont }}
+    >
+      {/* Header row */}
+      <div className="flex items-start justify-between mb-3">
+        <div>
+          {logoUrl && (
+            <img
+              src={logoUrl}
+              alt="logo"
+              className="mb-1.5 h-10 w-10 object-contain"
+            />
+          )}
+          <div className="font-bold text-sm" style={{ color }}>
+            {businessName || "Your Business"}
+          </div>
+          <div className="text-[10px] text-gray-400 mt-0.5">123 Victoria Island, Lagos</div>
+        </div>
+        <div className="text-right">
+          <div className="font-bold text-base text-gray-700">INVOICE</div>
+          <div className="text-gray-400 text-[10px]">INV-2025-001</div>
+        </div>
+      </div>
+
+      {/* Divider in brand color */}
+      <div className="h-px mb-3" style={{ backgroundColor: color }} />
+
+      {/* Sample rows */}
+      <div className="flex justify-between text-gray-500 mb-1">
+        <span>Website Redesign</span>
+        <span>₦150,000</span>
+      </div>
+      <div className="flex justify-between text-gray-500 mb-3">
+        <span>SEO Audit</span>
+        <span>₦50,000</span>
+      </div>
+
+      {/* Total */}
+      <div
+        className="flex justify-between font-bold border-t-2 pt-2"
+        style={{ borderColor: color, color }}
+      >
+        <span>Total Due</span>
+        <span>₦200,000</span>
+      </div>
+
+      {/* Footer */}
+      <div className="mt-4 border-t border-gray-100 pt-2 text-center text-gray-400 text-[9px]">
+        {footer || "Generated with PayTrack • Thank you for your business"}
+      </div>
+    </div>
+  );
+}
+
 function SettingsForm({ profile }: { profile: Profile }) {
   const updateProfile = useMutation(api.users.createOrUpdateProfile);
+  const generateLogoUploadUrl = useMutation(api.users.generateLogoUploadUrl);
+  const saveLogo = useMutation(api.users.saveLogo);
+  const logoUrl = useQuery(api.users.getLogoUrl);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [logoUploading, setLogoUploading] = useState(false);
 
   const [businessName, setBusinessName] = useState(profile.businessName);
   const [ownerName, setOwnerName] = useState(profile.ownerName);
@@ -30,7 +116,46 @@ function SettingsForm({ profile }: { profile: Profile }) {
   const [address, setAddress] = useState(profile.address ?? "");
   const [bankName, setBankName] = useState(profile.bankName ?? "");
   const [bankAccount, setBankAccount] = useState(profile.bankAccount ?? "");
+  const [brandColor, setBrandColor] = useState(profile.brandColor ?? "#4f46e5");
+  const [brandFont, setBrandFont] = useState<BrandFont>(profile.brandFont ?? "Helvetica");
+  const [invoiceFooter, setInvoiceFooter] = useState(profile.invoiceFooter ?? "");
   const [loading, setLoading] = useState(false);
+
+  async function handleLogoFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error("Logo must be under 2MB");
+      e.target.value = "";
+      return;
+    }
+    try {
+      setLogoUploading(true);
+      const uploadUrl = await generateLogoUploadUrl();
+      const res = await fetch(uploadUrl, {
+        method: "POST",
+        headers: { "Content-Type": file.type },
+        body: file,
+      });
+      const { storageId } = await res.json();
+      await saveLogo({ storageId });
+      toast.success("Logo uploaded");
+    } catch {
+      toast.error("Failed to upload logo");
+    } finally {
+      setLogoUploading(false);
+      e.target.value = "";
+    }
+  }
+
+  async function handleRemoveLogo() {
+    try {
+      await saveLogo({ storageId: null });
+      toast.success("Logo removed");
+    } catch {
+      toast.error("Failed to remove logo");
+    }
+  }
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
@@ -43,6 +168,9 @@ function SettingsForm({ profile }: { profile: Profile }) {
         address: address || undefined,
         bankName: bankName || undefined,
         bankAccount: bankAccount || undefined,
+        brandColor,
+        brandFont,
+        invoiceFooter: invoiceFooter || undefined,
       });
       toast.success("Profile saved");
     } catch (err) {
@@ -139,6 +267,139 @@ function SettingsForm({ profile }: { profile: Profile }) {
         </CardContent>
       </Card>
 
+      {/* ── Branding Card ─────────────────────────────────────────────── */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Brand & Invoice Style</CardTitle>
+          <CardDescription>
+            Customize how your invoices look to clients
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
+            {/* Controls */}
+            <div className="space-y-5">
+              {/* Logo */}
+              <div className="space-y-2">
+                <Label>Business Logo</Label>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/svg+xml"
+                  className="hidden"
+                  onChange={handleLogoFileChange}
+                />
+                {logoUrl ? (
+                  <div className="flex items-center gap-3">
+                    <img
+                      src={logoUrl}
+                      alt="logo preview"
+                      className="h-16 w-16 rounded-md border object-contain bg-muted p-1"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="text-destructive hover:text-destructive gap-1.5"
+                      onClick={handleRemoveLogo}
+                    >
+                      <X size={14} />
+                      Remove
+                    </Button>
+                  </div>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={logoUploading}
+                    onClick={() => fileInputRef.current?.click()}
+                    className="gap-2"
+                  >
+                    <Upload size={14} />
+                    {logoUploading ? "Uploading…" : "Upload Logo"}
+                  </Button>
+                )}
+                <p className="text-xs text-muted-foreground">PNG, JPG or SVG · Max 2MB</p>
+              </div>
+
+              {/* Brand color */}
+              <div className="space-y-2">
+                <Label htmlFor="brandColor">Primary Color</Label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    id="brandColor"
+                    value={brandColor}
+                    onChange={(e) => setBrandColor(e.target.value)}
+                    className="h-9 w-10 cursor-pointer rounded-md border border-input p-0.5"
+                  />
+                  <Input
+                    value={brandColor}
+                    onChange={(e) => setBrandColor(e.target.value)}
+                    placeholder="#4f46e5"
+                    className="w-32 font-mono text-sm"
+                    maxLength={7}
+                  />
+                </div>
+              </div>
+
+              {/* Font */}
+              <div className="space-y-2">
+                <Label>Invoice Font</Label>
+                <div className="flex gap-2">
+                  {FONT_OPTIONS.map((opt) => (
+                    <Button
+                      key={opt.value}
+                      type="button"
+                      variant={brandFont === opt.value ? "default" : "outline"}
+                      size="sm"
+                      style={{ fontFamily: opt.css }}
+                      onClick={() => setBrandFont(opt.value)}
+                    >
+                      {opt.label}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Footer text */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="invoiceFooter">Footer Text</Label>
+                  <span className="text-xs text-muted-foreground">
+                    {invoiceFooter.length}/160
+                  </span>
+                </div>
+                <Textarea
+                  id="invoiceFooter"
+                  value={invoiceFooter}
+                  onChange={(e) =>
+                    setInvoiceFooter(e.target.value.slice(0, 160))
+                  }
+                  placeholder="Generated with PayTrack • Thank you for your business"
+                  rows={2}
+                />
+              </div>
+            </div>
+
+            {/* Live preview */}
+            <div>
+              <p className="text-xs font-medium text-muted-foreground mb-3 uppercase tracking-wide">
+                Preview
+              </p>
+              <BrandPreview
+                businessName={businessName}
+                color={brandColor}
+                font={brandFont}
+                footer={invoiceFooter}
+                logoUrl={logoUrl}
+              />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       <Button type="submit" disabled={loading}>
         {loading ? "Saving…" : "Save Changes"}
       </Button>
@@ -180,8 +441,7 @@ function SettingsForm({ profile }: { profile: Profile }) {
             </>
           ) : (
             <p className="text-sm text-muted-foreground">
-              You are on the Pro plan. Unlimited invoices and all features
-              enabled.
+              You are on the Pro plan. Unlimited invoices and all features enabled.
             </p>
           )}
         </CardContent>

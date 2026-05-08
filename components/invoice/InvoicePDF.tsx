@@ -5,42 +5,36 @@ import {
   Page,
   Text,
   View,
+  Image,
   StyleSheet,
   PDFDownloadLink,
 } from "@react-pdf/renderer";
 import { Button } from "@/components/ui/button";
 import { Download } from "lucide-react";
 
-const styles = StyleSheet.create({
+const staticStyles = StyleSheet.create({
   page: {
     padding: 48,
     fontSize: 10,
-    fontFamily: "Helvetica",
     color: "#1a1a1a",
   },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
+    alignItems: "flex-start",
     marginBottom: 32,
   },
-  businessName: { fontSize: 20, fontFamily: "Helvetica-Bold", color: "#4f46e5" },
-  invoiceTitle: { fontSize: 24, fontFamily: "Helvetica-Bold", textAlign: "right" },
+  logoMark: {
+    width: 56,
+    height: 56,
+    objectFit: "contain",
+    marginBottom: 6,
+  },
+  invoiceTitle: { fontSize: 24, textAlign: "right" },
   invoiceNumber: { color: "#6b7280", textAlign: "right", marginTop: 4 },
   section: { marginBottom: 24 },
   label: { color: "#6b7280", marginBottom: 4, fontSize: 9, textTransform: "uppercase" },
-  value: { fontFamily: "Helvetica-Bold" },
-  row: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 16,
-  },
-  tableHeader: {
-    flexDirection: "row",
-    backgroundColor: "#f3f4f6",
-    padding: "8 12",
-    borderRadius: 4,
-    marginBottom: 4,
-  },
+  row: { flexDirection: "row", justifyContent: "space-between", marginBottom: 16 },
   tableRow: {
     flexDirection: "row",
     padding: "6 12",
@@ -58,16 +52,6 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingVertical: 4,
   },
-  grandTotal: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingVertical: 6,
-    borderTopWidth: 2,
-    borderTopColor: "#4f46e5",
-    marginTop: 4,
-    fontFamily: "Helvetica-Bold",
-    fontSize: 12,
-  },
   footer: {
     marginTop: 40,
     borderTopWidth: 1,
@@ -79,11 +63,16 @@ const styles = StyleSheet.create({
   },
 });
 
+function boldOf(font: string) {
+  if (font === "Times-Roman") return "Times-Bold";
+  if (font === "Courier") return "Courier-Bold";
+  return "Helvetica-Bold";
+}
+
 function fmt(kobo: number) {
-  return new Intl.NumberFormat("en-NG", {
-    style: "currency",
-    currency: "NGN",
-  }).format(kobo / 100);
+  return new Intl.NumberFormat("en-NG", { style: "currency", currency: "NGN" }).format(
+    kobo / 100
+  );
 }
 
 function fmtDate(ts: number) {
@@ -104,17 +93,17 @@ type InvoiceData = {
   total: number;
   taxRate: number;
   notes?: string;
+  brandColor?: string;
+  brandFont?: "Helvetica" | "Times-Roman" | "Courier";
+  invoiceFooter?: string;
+  logoUrl?: string | null;
   items: Array<{
     description: string;
     quantity: number;
     unitPrice: number;
     total: number;
   }>;
-  client?: {
-    name: string;
-    email: string;
-    address?: string;
-  } | null;
+  client?: { name: string; email: string; address?: string } | null;
   profile?: {
     businessName: string;
     ownerName: string;
@@ -125,13 +114,22 @@ type InvoiceData = {
 };
 
 function InvoiceDocument({ invoice }: { invoice: InvoiceData }) {
+  const color = invoice.brandColor ?? "#4f46e5";
+  const font = invoice.brandFont ?? "Helvetica";
+  const bold = boldOf(font);
+  const footerText =
+    invoice.invoiceFooter ?? "Generated with PayTrack • Thank you for your business";
+
   return (
     <Document>
-      <Page size="A4" style={styles.page}>
+      <Page size="A4" style={[staticStyles.page, { fontFamily: font }]}>
         {/* Header */}
-        <View style={styles.header}>
+        <View style={staticStyles.header}>
           <View>
-            <Text style={styles.businessName}>
+            {invoice.logoUrl ? (
+              <Image src={invoice.logoUrl} style={staticStyles.logoMark} />
+            ) : null}
+            <Text style={{ fontSize: 20, fontFamily: bold, color }}>
               {invoice.profile?.businessName ?? "Business"}
             </Text>
             {invoice.profile?.address && (
@@ -141,16 +139,18 @@ function InvoiceDocument({ invoice }: { invoice: InvoiceData }) {
             )}
           </View>
           <View>
-            <Text style={styles.invoiceTitle}>INVOICE</Text>
-            <Text style={styles.invoiceNumber}>{invoice.invoiceNumber}</Text>
+            <Text style={[staticStyles.invoiceTitle, { fontFamily: bold }]}>
+              INVOICE
+            </Text>
+            <Text style={staticStyles.invoiceNumber}>{invoice.invoiceNumber}</Text>
           </View>
         </View>
 
         {/* Bill To / Dates */}
-        <View style={styles.row}>
-          <View style={styles.section}>
-            <Text style={styles.label}>Bill To</Text>
-            <Text style={styles.value}>{invoice.client?.name ?? "—"}</Text>
+        <View style={staticStyles.row}>
+          <View style={staticStyles.section}>
+            <Text style={staticStyles.label}>Bill To</Text>
+            <Text style={{ fontFamily: bold }}>{invoice.client?.name ?? "—"}</Text>
             <Text style={{ marginTop: 2 }}>{invoice.client?.email}</Text>
             {invoice.client?.address && (
               <Text style={{ marginTop: 2, color: "#6b7280" }}>
@@ -158,63 +158,94 @@ function InvoiceDocument({ invoice }: { invoice: InvoiceData }) {
               </Text>
             )}
           </View>
-          <View style={[styles.section, { textAlign: "right" }]}>
-            <Text style={styles.label}>Issue Date</Text>
-            <Text style={styles.value}>{fmtDate(invoice.issueDate)}</Text>
-            <Text style={[styles.label, { marginTop: 12 }]}>Due Date</Text>
-            <Text style={[styles.value, { color: "#ef4444" }]}>
+          <View style={[staticStyles.section, { textAlign: "right" }]}>
+            <Text style={staticStyles.label}>Issue Date</Text>
+            <Text style={{ fontFamily: bold }}>{fmtDate(invoice.issueDate)}</Text>
+            <Text style={[staticStyles.label, { marginTop: 12 }]}>Due Date</Text>
+            <Text style={{ fontFamily: bold, color: "#ef4444" }}>
               {fmtDate(invoice.dueDate)}
             </Text>
           </View>
         </View>
 
         {/* Items table */}
-        <View style={styles.tableHeader}>
-          <Text style={[styles.colDesc, { fontFamily: "Helvetica-Bold", fontSize: 9 }]}>
-            Description
-          </Text>
-          <Text style={[styles.colQty, { fontFamily: "Helvetica-Bold", fontSize: 9 }]}>
-            Qty
-          </Text>
-          <Text style={[styles.colPrice, { fontFamily: "Helvetica-Bold", fontSize: 9 }]}>
-            Unit Price
-          </Text>
-          <Text style={[styles.colTotal, { fontFamily: "Helvetica-Bold", fontSize: 9 }]}>
-            Total
-          </Text>
+        <View
+          style={{
+            flexDirection: "row",
+            backgroundColor: "#f3f4f6",
+            padding: "8 12",
+            borderRadius: 4,
+            marginBottom: 4,
+          }}
+        >
+          {(
+            [
+              ["Description", staticStyles.colDesc],
+              ["Qty", staticStyles.colQty],
+              ["Unit Price", staticStyles.colPrice],
+              ["Total", staticStyles.colTotal],
+            ] as const
+          ).map(([label, colStyle]) => (
+            <Text
+              key={label}
+              style={[colStyle, { fontFamily: bold, fontSize: 9 }]}
+            >
+              {label}
+            </Text>
+          ))}
         </View>
 
         {invoice.items.map((item, i) => (
-          <View key={i} style={styles.tableRow}>
-            <Text style={styles.colDesc}>{item.description}</Text>
-            <Text style={styles.colQty}>{item.quantity}</Text>
-            <Text style={styles.colPrice}>{fmt(item.unitPrice)}</Text>
-            <Text style={styles.colTotal}>{fmt(item.total)}</Text>
+          <View key={i} style={staticStyles.tableRow}>
+            <Text style={staticStyles.colDesc}>{item.description}</Text>
+            <Text style={staticStyles.colQty}>{item.quantity}</Text>
+            <Text style={staticStyles.colPrice}>{fmt(item.unitPrice)}</Text>
+            <Text style={staticStyles.colTotal}>{fmt(item.total)}</Text>
           </View>
         ))}
 
         {/* Totals */}
-        <View style={styles.totalsRow}>
-          <View style={styles.totalsTable}>
-            <View style={styles.totalLine}>
+        <View style={staticStyles.totalsRow}>
+          <View style={staticStyles.totalsTable}>
+            <View style={staticStyles.totalLine}>
               <Text style={{ color: "#6b7280" }}>Subtotal</Text>
               <Text>{fmt(invoice.subtotal)}</Text>
             </View>
-            <View style={styles.totalLine}>
+            <View style={staticStyles.totalLine}>
               <Text style={{ color: "#6b7280" }}>Tax ({invoice.taxRate}%)</Text>
               <Text>{fmt(invoice.tax)}</Text>
             </View>
-            <View style={styles.grandTotal}>
+            <View
+              style={{
+                flexDirection: "row",
+                justifyContent: "space-between",
+                paddingVertical: 6,
+                borderTopWidth: 2,
+                borderTopColor: color,
+                marginTop: 4,
+                fontFamily: bold,
+                fontSize: 12,
+              }}
+            >
               <Text>Total Due</Text>
-              <Text style={{ color: "#4f46e5" }}>{fmt(invoice.total)}</Text>
+              <Text style={{ color }}>{fmt(invoice.total)}</Text>
             </View>
           </View>
         </View>
 
         {/* Bank details */}
         {(invoice.profile?.bankName || invoice.profile?.bankAccount) && (
-          <View style={{ marginTop: 32, padding: 12, backgroundColor: "#f9fafb", borderRadius: 4 }}>
-            <Text style={[styles.label, { marginBottom: 8 }]}>Payment Details</Text>
+          <View
+            style={{
+              marginTop: 32,
+              padding: 12,
+              backgroundColor: "#f9fafb",
+              borderRadius: 4,
+            }}
+          >
+            <Text style={[staticStyles.label, { marginBottom: 8 }]}>
+              Payment Details
+            </Text>
             {invoice.profile.bankName && (
               <Text>Bank: {invoice.profile.bankName}</Text>
             )}
@@ -227,14 +258,12 @@ function InvoiceDocument({ invoice }: { invoice: InvoiceData }) {
         {/* Notes */}
         {invoice.notes && (
           <View style={{ marginTop: 24 }}>
-            <Text style={styles.label}>Notes</Text>
+            <Text style={staticStyles.label}>Notes</Text>
             <Text style={{ color: "#374151" }}>{invoice.notes}</Text>
           </View>
         )}
 
-        <Text style={styles.footer}>
-          Generated with PayTrack • Thank you for your business
-        </Text>
+        <Text style={staticStyles.footer}>{footerText}</Text>
       </Page>
     </Document>
   );

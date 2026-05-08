@@ -13,6 +13,12 @@ export default defineSchema({
     phone: v.optional(v.string()),
     address: v.optional(v.string()),
     logoUrl: v.optional(v.string()),
+    logoStorageId: v.optional(v.id("_storage")),
+    brandColor: v.optional(v.string()),
+    brandFont: v.optional(
+      v.union(v.literal("Helvetica"), v.literal("Times-Roman"), v.literal("Courier"))
+    ),
+    invoiceFooter: v.optional(v.string()),
     plan: v.union(v.literal("free"), v.literal("pro")),
     invoiceCount: v.number(),
     bankName: v.optional(v.string()),

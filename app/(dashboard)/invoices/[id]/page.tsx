@@ -34,6 +34,8 @@ export default function InvoiceDetailPage() {
   const invoice = useQuery(api.invoices.getInvoiceById, {
     invoiceId: id as Id<"invoices">,
   });
+  const profile = useQuery(api.users.getMyProfile);
+  const logoUrl = useQuery(api.users.getLogoUrl);
   const sendInvoice = useMutation(api.invoices.sendInvoice);
   const resendInvoice = useMutation(api.invoices.resendInvoice);
   const deleteInvoice = useMutation(api.invoices.deleteInvoice);
@@ -129,7 +131,15 @@ export default function InvoiceDetailPage() {
         </div>
 
         <div className="flex flex-wrap gap-2 justify-end">
-          <InvoicePDFDownload invoice={invoice} />
+          <InvoicePDFDownload
+                invoice={{
+                  ...invoice,
+                  brandColor: profile?.brandColor ?? undefined,
+                  brandFont: profile?.brandFont ?? undefined,
+                  invoiceFooter: profile?.invoiceFooter ?? undefined,
+                  logoUrl: logoUrl ?? undefined,
+                }}
+              />
 
           {invoice.status !== "paid" && (
             <Button variant="outline" size="sm" asChild>
