@@ -3,6 +3,7 @@
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -101,11 +102,12 @@ function BrandPreview({
   );
 }
 
-function SettingsForm({ profile }: { profile: Profile }) {
+function SettingsForm({ profile, isOnboarding = false }: { profile: Profile; isOnboarding?: boolean }) {
   const updateProfile = useMutation(api.users.createOrUpdateProfile);
   const generateLogoUploadUrl = useMutation(api.users.generateLogoUploadUrl);
   const saveLogo = useMutation(api.users.saveLogo);
-  const logoUrl = useQuery(api.users.getLogoUrl);
+  const logoUrl = profile.logoUrl ?? null;
+  const router = useRouter();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [logoUploading, setLogoUploading] = useState(false);
@@ -172,7 +174,8 @@ function SettingsForm({ profile }: { profile: Profile }) {
         brandFont,
         invoiceFooter: invoiceFooter || undefined,
       });
-      toast.success("Profile saved");
+      toast.success(isOnboarding ? "Setup complete! Welcome to PayTrack." : "Profile saved");
+      if (isOnboarding) router.replace("/dashboard");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to save");
     } finally {
@@ -401,7 +404,9 @@ function SettingsForm({ profile }: { profile: Profile }) {
       </Card>
 
       <Button type="submit" disabled={loading}>
-        {loading ? "Saving…" : "Save Changes"}
+        {loading
+          ? isOnboarding ? "Setting up…" : "Saving…"
+          : isOnboarding ? "Complete Setup →" : "Save Changes"}
       </Button>
 
       <Separator />
@@ -452,15 +457,26 @@ function SettingsForm({ profile }: { profile: Profile }) {
 
 export default function SettingsPage() {
   const profile = useQuery(api.users.getMyProfile);
+  const isOnboarding = profile === null;
 
   return (
     <div className="space-y-6 max-w-2xl">
       <div>
-        <h1 className="text-2xl font-heading font-semibold">Settings</h1>
+        <h1 className="text-2xl font-heading font-semibold">
+          {isOnboarding ? "Complete Your Registration" : "Settings"}
+        </h1>
         <p className="text-sm text-muted-foreground mt-0.5">
-          Manage your business profile and account
+          {isOnboarding
+            ? "Tell us about your business so we can personalise your invoices and account."
+            : "Manage your business profile and account"}
         </p>
       </div>
+
+      {isOnboarding && (
+        <div className="rounded-lg border border-primary/20 bg-primary/5 px-4 py-3 text-sm text-primary">
+          Almost there! Fill in your business details below to unlock your dashboard.
+        </div>
+      )}
 
       {profile === undefined ? (
         <div className="space-y-4">
@@ -469,6 +485,7 @@ export default function SettingsPage() {
         </div>
       ) : profile === null ? (
         <SettingsForm
+          isOnboarding
           profile={{
             _id: "" as Profile["_id"],
             _creationTime: 0,
@@ -478,6 +495,7 @@ export default function SettingsPage() {
             email: "",
             plan: "free",
             invoiceCount: 0,
+            logoUrl: null,
           }}
         />
       ) : (

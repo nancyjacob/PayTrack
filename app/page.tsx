@@ -818,7 +818,7 @@ export default function LandingPage() {
 
           <div className="flex flex-col items-center justify-between gap-3 border-t border-white/8 py-6 text-xs text-white/25 sm:flex-row">
             <p>© {new Date().getFullYear()} PayTrack. Built for Nigerian businesses.</p>
-            <p>Made with ♥ in Nigeria</p>
+            <p>Made with in Nigeria</p>
           </div>
         </div>
       </footer>

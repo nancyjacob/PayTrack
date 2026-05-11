@@ -61,7 +61,7 @@ export default function SignUpPage() {
         password: values.password,
         flow: "signUp",
       });
-      router.replace("/dashboard");
+      router.replace("/settings");
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Registration failed";
       toast.error(

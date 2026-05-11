@@ -16,10 +16,15 @@ export const getMyProfile = query({
   handler: async (ctx) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) return null;
-    return await ctx.db
+    const profile = await ctx.db
       .query("userProfiles")
       .withIndex("by_userId", (q) => q.eq("userId", userId))
       .unique();
+    if (!profile) return null;
+    const logoUrl = profile.logoStorageId
+      ? await ctx.storage.getUrl(profile.logoStorageId)
+      : null;
+    return { ...profile, logoUrl };
   },
 });
 
