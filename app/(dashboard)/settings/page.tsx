@@ -102,6 +102,38 @@ function BrandPreview({
   );
 }
 
+function getDominantColor(src: string): Promise<string> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = 80;
+      canvas.height = 80;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) { resolve("#4f46e5"); return; }
+      ctx.drawImage(img, 0, 0, 80, 80);
+      const { data } = ctx.getImageData(0, 0, 80, 80);
+      const counts: Record<string, number> = {};
+      for (let i = 0; i < data.length; i += 4) {
+        const a = data[i + 3];
+        if (a < 128) continue;
+        const brightness = (data[i] + data[i + 1] + data[i + 2]) / 3;
+        if (brightness > 230 || brightness < 25) continue;
+        const key = `${data[i] >> 5},${data[i + 1] >> 5},${data[i + 2] >> 5}`;
+        counts[key] = (counts[key] ?? 0) + 1;
+      }
+      const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
+      if (!top) { resolve("#4f46e5"); return; }
+      const [rq, gq, bq] = top[0].split(",").map((n) => Number(n) * 32 + 16);
+      resolve(
+        `#${rq.toString(16).padStart(2, "0")}${gq.toString(16).padStart(2, "0")}${bq.toString(16).padStart(2, "0")}`
+      );
+    };
+    img.onerror = () => resolve("#4f46e5");
+    img.src = src;
+  });
+}
+
 function SettingsForm({ profile, isOnboarding = false }: { profile: Profile; isOnboarding?: boolean }) {
   const updateProfile = useMutation(api.users.createOrUpdateProfile);
   const generateLogoUploadUrl = useMutation(api.users.generateLogoUploadUrl);
@@ -133,17 +165,32 @@ function SettingsForm({ profile, isOnboarding = false }: { profile: Profile; isO
     }
     try {
       setLogoUploading(true);
+
+      // Extract dominant colour from the local file before uploading
+      const objectUrl = URL.createObjectURL(file);
+      const dominantColor = await getDominantColor(objectUrl);
+      URL.revokeObjectURL(objectUrl);
+
       const uploadUrl = await generateLogoUploadUrl();
       const res = await fetch(uploadUrl, {
         method: "POST",
-        headers: { "Content-Type": file.type },
+        headers: { "Content-Type": file.type || "application/octet-stream" },
         body: file,
       });
-      const { storageId } = await res.json();
-      await saveLogo({ storageId });
-      toast.success("Logo uploaded");
-    } catch {
-      toast.error("Failed to upload logo");
+      if (!res.ok) {
+        const text = await res.text().catch(() => res.statusText);
+        throw new Error(`Upload failed (${res.status}): ${text}`);
+      }
+      const data = await res.json();
+      if (!data.storageId) throw new Error(`Unexpected response: ${JSON.stringify(data)}`);
+      await saveLogo({ storageId: data.storageId });
+
+      // Update brand colour to match the uploaded logo
+      setBrandColor(dominantColor);
+      toast.success("Logo uploaded — brand colour updated to match");
+    } catch (err) {
+      console.error("Logo upload error:", err);
+      toast.error(err instanceof Error ? err.message : "Failed to upload logo");
     } finally {
       setLogoUploading(false);
       e.target.value = "";
@@ -297,7 +344,7 @@ function SettingsForm({ profile, isOnboarding = false }: { profile: Profile; isO
                     <img
                       src={logoUrl}
                       alt="logo preview"
-                      className="h-16 w-16 rounded-md border object-contain bg-muted p-1"
+                      className="h-16 w-16 rounded-md border object-contain bg-white p-1"
                     />
                     <Button
                       type="button"

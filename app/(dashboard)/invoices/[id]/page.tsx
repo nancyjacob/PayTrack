@@ -5,6 +5,7 @@ import { api } from "@/convex/_generated/api";
 import { type Id } from "@/convex/_generated/dataModel";
 import { useParams, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
+import { Component, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
@@ -18,6 +19,7 @@ import {
   Pencil,
   Copy,
   RefreshCw,
+  Download,
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -27,6 +29,24 @@ const InvoicePDFDownload = dynamic(
     import("@/components/invoice/InvoicePDF").then((m) => m.InvoicePDFDownload),
   { ssr: false, loading: () => <Skeleton className="h-9 w-36" /> }
 );
+
+class PDFErrorBoundary extends Component<
+  { children: ReactNode },
+  { hasError: boolean }
+> {
+  state = { hasError: false };
+  static getDerivedStateFromError() { return { hasError: true }; }
+  render() {
+    if (this.state.hasError)
+      return (
+        <Button variant="outline" size="sm" disabled>
+          <Download size={14} className="mr-1.5" />
+          PDF unavailable
+        </Button>
+      );
+    return this.props.children;
+  }
+}
 
 export default function InvoiceDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -119,7 +139,7 @@ export default function InvoiceDetailPage() {
           </Button>
           <div>
             <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-heading font-semibold">
+              <h1 className="text-2xl font-heading font-semibold whitespace-nowrap">
                 {invoice.invoiceNumber}
               </h1>
               <InvoiceStatusBadge status={invoice.status as InvoiceStatus} />
@@ -131,15 +151,17 @@ export default function InvoiceDetailPage() {
         </div>
 
         <div className="flex flex-wrap gap-2 justify-end">
-          <InvoicePDFDownload
-                invoice={{
-                  ...invoice,
-                  brandColor: profile?.brandColor ?? undefined,
-                  brandFont: profile?.brandFont ?? undefined,
-                  invoiceFooter: profile?.invoiceFooter ?? undefined,
-                  logoUrl: logoUrl ?? undefined,
-                }}
-              />
+          <PDFErrorBoundary>
+                <InvoicePDFDownload
+                  invoice={{
+                    ...invoice,
+                    brandColor: profile?.brandColor ?? undefined,
+                    brandFont: profile?.brandFont ?? undefined,
+                    invoiceFooter: profile?.invoiceFooter ?? undefined,
+                    logoUrl: logoUrl ?? undefined,
+                  }}
+                />
+              </PDFErrorBoundary>
 
           {invoice.status !== "paid" && (
             <Button variant="outline" size="sm" asChild>
@@ -206,7 +228,7 @@ export default function InvoiceDetailPage() {
             </p>
             <p className="font-semibold">{invoice.client?.name ?? "—"}</p>
             <p className="text-sm text-muted-foreground">
-              {invoice.client?.email}
+              {invoice.client?.email ?? "—"}
             </p>
             {invoice.client?.address && (
               <p className="text-sm text-muted-foreground mt-1">

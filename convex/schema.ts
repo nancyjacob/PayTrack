@@ -32,7 +32,9 @@ export default defineSchema({
     phone: v.optional(v.string()),
     address: v.optional(v.string()),
     createdAt: v.number(),
-  }).index("by_userId", ["userId"]),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_userId_email", ["userId", "email"]),
 
   invoices: defineTable({
     userId: v.id("users"),

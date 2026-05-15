@@ -266,7 +266,7 @@ export default function LandingPage() {
               <Link href="/sign-in">Sign in</Link>
             </Button>
             <Button size="sm" className="ml-1 rounded-full" asChild>
-              <Link href="/sign-up">Get started free</Link>
+              <Link href="#pricing">Get started free</Link>
             </Button>
           </nav>
         </div>
@@ -328,7 +328,7 @@ export default function LandingPage() {
               className="w-full rounded-full shadow-md shadow-primary/20 transition-transform hover:scale-[1.02] active:scale-[0.99] sm:w-auto sm:min-w-44"
               asChild
             >
-              <Link href="/sign-up">Get started free</Link>
+              <Link href="#pricing">Get started free</Link>
             </Button>
           </div>
 
@@ -620,7 +620,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── Pricing ──────────────────────────────────────── */}
-      <section className="border-t border-gray-100 bg-gray-50 py-24">
+      <section id="pricing" className="border-t border-gray-100 bg-gray-50 py-24">
         <div className="mx-auto max-w-4xl px-4 sm:px-6">
           <div className="mb-14 text-center">
             <h2 className="font-heading text-3xl font-bold tracking-tight text-gray-900">

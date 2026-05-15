@@ -36,6 +36,16 @@ export const createClient = mutation({
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not authenticated");
+
+    const existing = await ctx.db
+      .query("clients")
+      .withIndex("by_userId_email", (q) =>
+        q.eq("userId", userId).eq("email", args.email)
+      )
+      .unique();
+
+    if (existing) return existing._id;
+
     return await ctx.db.insert("clients", {
       userId,
       createdAt: Date.now(),

@@ -2,6 +2,7 @@
 
 import {
   Document,
+  Font,
   Page,
   Text,
   View,
@@ -9,6 +10,17 @@ import {
   StyleSheet,
   PDFDownloadLink,
 } from "@react-pdf/renderer";
+
+// Register Noto Sans (self-hosted in /public/fonts/) to get full Unicode coverage,
+// specifically the ₦ Naira sign (U+20A6) which built-in Latin-1 fonts cannot render.
+// This file only runs client-side (ssr: false dynamic import), so location is available.
+const FONT_ORIGIN = typeof location !== "undefined" ? location.origin : "http://localhost:3000";
+Font.register({ family: "Helvetica",      src: `${FONT_ORIGIN}/fonts/NotoSans-Regular.ttf` });
+Font.register({ family: "Helvetica-Bold", src: `${FONT_ORIGIN}/fonts/NotoSans-Bold.ttf` });
+Font.register({ family: "Times-Roman",    src: `${FONT_ORIGIN}/fonts/NotoSans-Regular.ttf` });
+Font.register({ family: "Times-Bold",     src: `${FONT_ORIGIN}/fonts/NotoSans-Bold.ttf` });
+Font.register({ family: "Courier",        src: `${FONT_ORIGIN}/fonts/NotoSans-Regular.ttf` });
+Font.register({ family: "Courier-Bold",   src: `${FONT_ORIGIN}/fonts/NotoSans-Bold.ttf` });
 import { Button } from "@/components/ui/button";
 import { Download } from "lucide-react";
 
@@ -37,7 +49,8 @@ const staticStyles = StyleSheet.create({
   row: { flexDirection: "row", justifyContent: "space-between", marginBottom: 16 },
   tableRow: {
     flexDirection: "row",
-    padding: "6 12",
+    paddingVertical: 6,
+    paddingHorizontal: 12,
     borderBottomWidth: 1,
     borderBottomColor: "#f3f4f6",
   },
@@ -158,7 +171,7 @@ function InvoiceDocument({ invoice }: { invoice: InvoiceData }) {
               </Text>
             )}
           </View>
-          <View style={[staticStyles.section, { textAlign: "right" }]}>
+          <View style={[staticStyles.section, { alignItems: "flex-end" }]}>
             <Text style={staticStyles.label}>Issue Date</Text>
             <Text style={{ fontFamily: bold }}>{fmtDate(invoice.issueDate)}</Text>
             <Text style={[staticStyles.label, { marginTop: 12 }]}>Due Date</Text>
@@ -173,7 +186,8 @@ function InvoiceDocument({ invoice }: { invoice: InvoiceData }) {
           style={{
             flexDirection: "row",
             backgroundColor: "#f3f4f6",
-            padding: "8 12",
+            paddingVertical: 8,
+            paddingHorizontal: 12,
             borderRadius: 4,
             marginBottom: 4,
           }}

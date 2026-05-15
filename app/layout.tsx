@@ -25,7 +25,7 @@ export default async function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={cn("antialiased", fontMono.variable, "font-sans", inter.variable, geistHeading.variable)}
+      className={cn("scroll-smooth antialiased", fontMono.variable, "font-sans", inter.variable, geistHeading.variable)}
     >
       <body>
         <ConvexAuthNextjsServerProvider>

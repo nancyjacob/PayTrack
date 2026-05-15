@@ -42,60 +42,66 @@ export default function ClientDetailPage() {
   }
 
   return (
-    <div className="space-y-6 max-w-2xl">
-      <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" asChild>
-          <Link href="/clients">
-            <ArrowLeft size={18} />
-          </Link>
-        </Button>
-        <div>
-          <h1 className="text-2xl font-heading font-semibold">{client.name}</h1>
-          <p className="text-sm text-muted-foreground">
-            Client since {formatDate(client.createdAt)}
-          </p>
-        </div>
-      </div>
-
-      <div className="rounded-lg border bg-card p-6 space-y-4">
-        <h2 className="font-semibold">Contact Details</h2>
-        <Separator />
-        <div className="space-y-3">
-          <div className="flex items-center gap-3 text-sm">
-            <Mail size={15} className="text-muted-foreground shrink-0" />
-            <a
-              href={`mailto:${client.email}`}
-              className="text-primary hover:underline"
-            >
-              {client.email}
-            </a>
-          </div>
-          {client.phone && (
-            <div className="flex items-center gap-3 text-sm">
-              <Phone size={15} className="text-muted-foreground shrink-0" />
-              <span>{client.phone}</span>
-            </div>
-          )}
-          {client.address && (
-            <div className="flex items-center gap-3 text-sm">
-              <MapPin size={15} className="text-muted-foreground shrink-0" />
-              <span>{client.address}</span>
-            </div>
-          )}
-        </div>
-      </div>
-
-      <div>
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="font-semibold">Invoices</h2>
-          <Button size="sm" asChild>
-            <Link href="/invoices/new">New Invoice</Link>
+    <div className="space-y-6">
+      {/* Page header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="icon" asChild>
+            <Link href="/clients">
+              <ArrowLeft size={18} />
+            </Link>
           </Button>
+          <div>
+            <h1 className="text-2xl font-heading font-semibold">{client.name}</h1>
+            <p className="text-sm text-muted-foreground">
+              Client since {formatDate(client.createdAt)}
+            </p>
+          </div>
         </div>
-        <InvoiceTable
-          invoices={invoices ?? []}
-          loading={invoices === undefined}
-        />
+        <Button size="sm" asChild>
+          <Link href="/invoices/new">New Invoice</Link>
+        </Button>
+      </div>
+
+      {/* Side-by-side layout */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-4 lg:items-start">
+        {/* Contact details — narrow left column */}
+        <div className="rounded-lg border bg-card p-6 space-y-4 lg:col-span-1">
+          <h2 className="font-semibold">Contact Details</h2>
+          <Separator />
+          <div className="space-y-3">
+            <div className="flex items-center gap-3 text-sm">
+              <Mail size={15} className="text-muted-foreground shrink-0" />
+              <a
+                href={`mailto:${client.email}`}
+                className="text-primary hover:underline break-all"
+              >
+                {client.email}
+              </a>
+            </div>
+            {client.phone && (
+              <div className="flex items-center gap-3 text-sm">
+                <Phone size={15} className="text-muted-foreground shrink-0" />
+                <span>{client.phone}</span>
+              </div>
+            )}
+            {client.address && (
+              <div className="flex items-center gap-3 text-sm">
+                <MapPin size={15} className="text-muted-foreground shrink-0" />
+                <span>{client.address}</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Invoices — wide right column, heading lives inside the table card */}
+        <div className="lg:col-span-3">
+          <InvoiceTable
+            invoices={invoices ?? []}
+            loading={invoices === undefined}
+            header={<h2 className="font-semibold">Invoices</h2>}
+          />
+        </div>
       </div>
     </div>
   );

@@ -35,52 +35,56 @@ export function KPICards() {
 
   if (!stats) return null;
 
+  const momGrowth = stats.momGrowth ?? null;
   const momValue =
-    stats.momGrowth === null
-      ? "—"
-      : `${stats.momGrowth > 0 ? "+" : ""}${stats.momGrowth}%`;
+    momGrowth === null
+      ? "0%"
+      : `${momGrowth > 0 ? "+" : ""}${momGrowth}%`;
   const momColor =
-    stats.momGrowth === null
+    momGrowth === null
       ? "text-muted-foreground"
-      : stats.momGrowth >= 0
+      : momGrowth >= 0
         ? "text-green-600"
         : "text-red-600";
-  const MomIcon = stats.momGrowth !== null && stats.momGrowth < 0 ? TrendingDown : TrendingUp;
+  const MomIcon = momGrowth !== null && momGrowth < 0 ? TrendingDown : TrendingUp;
+
+  const safeNaira = (v: number | undefined | null) =>
+    formatNaira(v ?? 0);
 
   const cards = [
     {
       title: "Total Revenue",
-      value: formatNaira(stats.totalRevenue),
+      value: safeNaira(stats.totalRevenue),
       icon: TrendingUp,
       iconColor: "text-green-600",
     },
     {
       title: "Outstanding",
-      value: formatNaira(stats.outstanding),
+      value: safeNaira(stats.outstanding),
       icon: Clock,
       iconColor: "text-blue-600",
     },
     {
       title: "Collection Rate",
-      value: `${stats.collectionRate}%`,
+      value: `${stats.collectionRate ?? 0}%`,
       icon: Percent,
       iconColor: "text-indigo-600",
     },
     {
       title: "Avg Invoice Value",
-      value: formatNaira(stats.avgInvoiceValue),
+      value: safeNaira(stats.avgInvoiceValue),
       icon: Receipt,
       iconColor: "text-violet-600",
     },
     {
       title: "Overdue Amount",
-      value: formatNaira(stats.overdueAmount),
+      value: safeNaira(stats.overdueAmount),
       icon: AlertCircle,
       iconColor: "text-red-600",
     },
     {
       title: "Tax Collected",
-      value: formatNaira(stats.taxCollected),
+      value: safeNaira(stats.taxCollected),
       icon: CheckCircle,
       iconColor: "text-green-600",
     },
@@ -93,7 +97,7 @@ export function KPICards() {
     },
     {
       title: "Avg Days to Pay",
-      value: stats.avgDaysToPay === 0 ? "—" : `${stats.avgDaysToPay}d`,
+      value: stats.avgDaysToPay ? `${stats.avgDaysToPay}d` : "0",
       icon: Timer,
       iconColor: "text-orange-500",
     },

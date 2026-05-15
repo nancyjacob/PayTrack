@@ -33,9 +33,10 @@ type Invoice = {
 interface Props {
   invoices: Invoice[];
   loading?: boolean;
+  header?: React.ReactNode;
 }
 
-export function InvoiceTable({ invoices, loading }: Props) {
+export function InvoiceTable({ invoices, loading, header }: Props) {
   const sendInvoice = useMutation(api.invoices.sendInvoice);
   const deleteInvoice = useMutation(api.invoices.deleteInvoice);
 
@@ -95,6 +96,11 @@ export function InvoiceTable({ invoices, loading }: Props) {
 
   return (
     <div className="rounded-lg border bg-card">
+      {header && (
+        <div className="flex items-center justify-between px-4 py-3 border-b">
+          {header}
+        </div>
+      )}
       <Table>
         <TableHeader>
           <TableRow>

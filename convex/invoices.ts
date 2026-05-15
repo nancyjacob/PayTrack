@@ -165,12 +165,14 @@ export const getDashboardStats = query({
     const topClientIds = Object.entries(clientTotals)
       .sort((a, b) => b[1] - a[1])
       .slice(0, 5);
-    const topClients = await Promise.all(
+    const topClientsRaw = await Promise.all(
       topClientIds.map(async ([clientId, totalPaid]) => {
         const client = await ctx.db.get(clientId as Id<"clients">);
-        return { clientId, name: client?.name ?? "Unknown", totalPaid };
+        if (!client) return null;
+        return { clientId, name: client.name, totalPaid };
       })
     );
+    const topClients = topClientsRaw.filter((c) => c !== null);
 
     // Payment channel breakdown
     const payments = await ctx.db
