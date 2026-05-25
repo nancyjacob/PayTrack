@@ -23,7 +23,13 @@ export default defineSchema({
     invoiceCount: v.number(),
     bankName: v.optional(v.string()),
     bankAccount: v.optional(v.string()),
-  }).index("by_userId", ["userId"]),
+    isAdmin: v.optional(v.boolean()),
+    adminRole: v.optional(
+      v.union(v.literal("super_admin"), v.literal("admin"), v.literal("support"))
+    ),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_email", ["email"]),
 
   clients: defineTable({
     userId: v.id("users"),
@@ -71,6 +77,25 @@ export default defineSchema({
     total: v.number(),
   }).index("by_invoiceId", ["invoiceId"]),
 
+  supportTickets: defineTable({
+    userId: v.optional(v.id("users")),
+    name: v.string(),
+    email: v.string(),
+    subject: v.string(),
+    message: v.string(),
+    status: v.union(
+      v.literal("open"),
+      v.literal("in_progress"),
+      v.literal("resolved")
+    ),
+    assignedTo: v.optional(v.id("users")),
+    createdAt: v.number(),
+  })
+    .index("by_status", ["status"])
+    .index("by_userId", ["userId"])
+    .index("by_createdAt", ["createdAt"])
+    .index("by_assignedTo", ["assignedTo"]),
+
   payments: defineTable({
     invoiceId: v.id("invoices"),
     userId: v.id("users"),
@@ -82,4 +107,25 @@ export default defineSchema({
   })
     .index("by_invoiceId", ["invoiceId"])
     .index("by_userId", ["userId"]),
+
+  adminInvitations: defineTable({
+    email: v.string(),
+    role: v.union(
+      v.literal("super_admin"),
+      v.literal("admin"),
+      v.literal("support")
+    ),
+    invitedBy: v.id("users"),
+    token: v.string(),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("accepted"),
+      v.literal("expired")
+    ),
+    createdAt: v.number(),
+    expiresAt: v.number(),
+  })
+    .index("by_token", ["token"])
+    .index("by_email", ["email"])
+    .index("by_status", ["status"]),
 });

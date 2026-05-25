@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard,
   FileText,
@@ -9,12 +9,17 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
+  HelpCircle,
+  LogOut,
+  BarChart2,
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import { useAuthActions } from "@convex-dev/auth/react";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/analytics", label: "Analytics", icon: BarChart2 },
   { href: "/invoices", label: "Invoices", icon: FileText },
   { href: "/clients", label: "Clients", icon: Users },
   { href: "/settings", label: "Settings", icon: Settings },
@@ -22,7 +27,14 @@ const navItems = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
+  const { signOut } = useAuthActions();
   const [collapsed, setCollapsed] = useState(false);
+
+  async function handleSignOut() {
+    await signOut();
+    router.replace("/");
+  }
 
   return (
     <aside
@@ -31,6 +43,7 @@ export function Sidebar() {
         collapsed ? "w-16" : "w-60"
       )}
     >
+      {/* Header */}
       <div className="flex h-16 items-center justify-between border-b border-border px-4">
         {!collapsed && (
           <span className="font-heading text-lg font-semibold text-sidebar-foreground tracking-tight">
@@ -49,10 +62,10 @@ export function Sidebar() {
         </button>
       </div>
 
+      {/* Main nav */}
       <nav className="flex-1 space-y-0.5 p-2">
         {navItems.map(({ href, label, icon: Icon }) => {
-          const active =
-            pathname === href || pathname.startsWith(href + "/");
+          const active = pathname === href || pathname.startsWith(href + "/");
           return (
             <Link
               key={href}
@@ -70,13 +83,38 @@ export function Sidebar() {
             </Link>
           );
         })}
+
       </nav>
 
-      {!collapsed && (
-        <div className="border-t border-border p-4">
-          <p className="text-xs text-sidebar-foreground/50">PayTrack v1.0</p>
-        </div>
-      )}
+      {/* Bottom section */}
+      <div className="border-t border-border p-2 space-y-0.5">
+        <Link
+          href="/support"
+          className={cn(
+            "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+            pathname === "/support"
+              ? "bg-sidebar-primary text-sidebar-primary-foreground"
+              : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+          )}
+          title={collapsed ? "Support" : undefined}
+        >
+          <HelpCircle size={18} className="shrink-0" />
+          {!collapsed && <span>Support</span>}
+        </Link>
+
+        <button
+          onClick={handleSignOut}
+          className="w-full flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors text-sidebar-foreground hover:bg-destructive/10 hover:text-destructive"
+          title={collapsed ? "Sign out" : undefined}
+        >
+          <LogOut size={18} className="shrink-0" />
+          {!collapsed && <span>Sign out</span>}
+        </button>
+
+        {!collapsed && (
+          <p className="px-3 pt-1 text-xs text-sidebar-foreground/40">PayTrack v1.0</p>
+        )}
+      </div>
     </aside>
   );
 }

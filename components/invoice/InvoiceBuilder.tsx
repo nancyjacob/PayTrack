@@ -41,6 +41,7 @@ import { Plus, Trash2, CalendarIcon, ChevronDown, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import { AIInvoiceDialog } from "@/components/invoice/AIInvoiceDialog";
 
 type LineItem = {
   id: string;
@@ -229,8 +230,37 @@ export function InvoiceBuilder(props: Props) {
     }
   }
 
+  function applyAIResult(data: {
+    items: { description: string; quantity: number; unitPrice: number }[];
+    notes: string;
+    daysUntilDue: number;
+  }) {
+    setItems(
+      data.items.map((item) => ({
+        id: Math.random().toString(36).slice(2),
+        description: item.description,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+      }))
+    );
+    if (data.notes) setNotes(data.notes);
+    if (data.daysUntilDue) {
+      const due = new Date();
+      due.setDate(due.getDate() + data.daysUntilDue);
+      setDueDate(due);
+    }
+  }
+
   return (
     <div className="space-y-6 max-w-3xl">
+      {/* AI Generator — only show in create mode */}
+      {!isEdit && (
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">Fill in the details below or use AI to generate from a description.</p>
+          <AIInvoiceDialog onApply={applyAIResult} />
+        </div>
+      )}
+
       {/* Client selector */}
       <Card>
         <CardHeader>
