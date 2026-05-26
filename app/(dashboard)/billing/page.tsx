@@ -92,7 +92,7 @@ export default function BillingPage() {
             <Skeleton className="h-48 w-full" />
             <Skeleton className="h-64 w-full" />
           </div>
-        ) : (
+        ) : billing && profile && payments ? (
           <Tabs defaultValue="overview" className="space-y-6">
             <TabsList className="w-full justify-start h-auto flex-wrap gap-1 bg-muted/50 p-1">
               <TabsTrigger value="overview">Overview</TabsTrigger>
@@ -297,7 +297,7 @@ export default function BillingPage() {
               </Card>
             </TabsContent>
           </Tabs>
-        )}
+        ) : null}
       </div>
     </>
   );
