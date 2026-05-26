@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery, useMutation } from "convex/react";
+import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { type Id } from "@/convex/_generated/dataModel";
 import { useState } from "react";
@@ -50,7 +50,7 @@ export default function AdminAdminsPage() {
     api.admin.listPendingInvitations,
     myRole?.isSuperAdmin ? {} : "skip"
   );
-  const inviteAdmin = useMutation(api.admin.inviteAdmin);
+  const inviteAdmin = useAction(api.admin.inviteAdmin);
   const revokeInvitation = useMutation(api.admin.revokeAdminInvitation);
   const updateRole = useMutation(api.admin.updateAdminRole);
   const revokeAdmin = useMutation(api.admin.revokeAdmin);

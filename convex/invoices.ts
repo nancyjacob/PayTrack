@@ -9,6 +9,7 @@ import { type Id } from "./_generated/dataModel";
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { internal, api } from "./_generated/api";
+import { sendEmail, fromEmail } from "./lib/email";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -517,9 +518,6 @@ export const sendInvoiceEmail = internalAction({
     const invoice = await ctx.runQuery(api.invoices.getInvoiceById, { invoiceId });
     if (!invoice || !invoice.client) return;
 
-    const { Resend } = await import("resend");
-    const resend = new Resend(process.env.RESEND_API_KEY);
-
     const payLink = `${process.env.SITE_URL}/pay/${invoiceId}`;
     const amount = new Intl.NumberFormat("en-NG", {
       style: "currency",
@@ -531,11 +529,12 @@ export const sendInvoiceEmail = internalAction({
       year: "numeric",
     });
 
-    await resend.emails.send({
-      from: process.env.AUTH_RESEND_OTP_EMAIL!,
-      to: invoice.client.email,
+    await sendEmail({
+      fromAddress: fromEmail(),
+      toAddress: invoice.client.email,
+      toName: invoice.client.name,
       subject: `Invoice ${invoice.invoiceNumber} — ${amount} due ${dueDate}`,
-      html: `
+      htmlBody: `
         <div style="font-family:sans-serif;max-width:560px;margin:0 auto">
           <h2 style="color:#1a1a2e">Invoice from ${invoice.profile?.businessName ?? "PayTrack"}</h2>
           <p>Dear ${invoice.client.name},</p>

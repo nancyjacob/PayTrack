@@ -1,8 +1,9 @@
-import { query, mutation, internalMutation, internalAction } from "./_generated/server";
+import { query, mutation, action, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import type { QueryCtx, MutationCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
+import { sendEmail, fromEmail } from "./lib/email";
 
 const adminRoleValidator = v.union(
   v.literal("super_admin"),
@@ -234,7 +235,7 @@ export const listAdmins = query({
   },
 });
 
-export const inviteAdmin = mutation({
+export const createInvitationRecord = internalMutation({
   args: {
     email: v.string(),
     role: adminRoleValidator,
@@ -272,25 +273,21 @@ export const inviteAdmin = mutation({
       expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000,
     });
 
-    await ctx.scheduler.runAfter(0, internal.admin.sendAdminInviteEmail, {
-      email,
-      role,
-      token,
-    });
-
-    return invitationId;
+    return { invitationId, token };
   },
 });
 
-export const sendAdminInviteEmail = internalAction({
+export const inviteAdmin = action({
   args: {
     email: v.string(),
     role: adminRoleValidator,
-    token: v.string(),
   },
-  handler: async (_ctx, { email, role, token }) => {
-    const resendApiKey = process.env.RESEND_API_KEY;
-    if (!resendApiKey) return;
+  handler: async (ctx, { email, role }) => {
+    const { token } = await ctx.runMutation(
+      internal.admin.createInvitationRecord,
+      { email, role }
+    );
+
     const appUrl = process.env.APP_URL ?? "http://localhost:3000";
     const inviteUrl = `${appUrl}/admin/accept-invite?token=${token}`;
     const roleLabel =
@@ -300,35 +297,29 @@ export const sendAdminInviteEmail = internalAction({
           ? "Admin"
           : "Support Agent";
 
-    await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${resendApiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        from: "PayTrack <noreply@paytrack.app>",
-        to: [email],
-        subject: `You've been invited as ${roleLabel} on PayTrack`,
-        html: `
-          <div style="font-family:sans-serif;max-width:480px;margin:0 auto">
-            <h2 style="color:#111">Admin Invitation</h2>
-            <p>You've been invited to join the PayTrack admin team as a <strong>${roleLabel}</strong>.</p>
-            <p style="margin:24px 0">
-              <a href="${inviteUrl}" style="display:inline-block;background:#6366f1;color:white;padding:10px 24px;border-radius:6px;text-decoration:none;font-weight:600">
-                Accept Invitation
-              </a>
-            </p>
-            <p style="color:#6b7280;font-size:13px">
-              This invitation expires in 7 days. If you don't have a PayTrack account yet,
-              please sign up at <a href="${appUrl}">${appUrl}</a> using this email address first.
-            </p>
-          </div>
-        `,
-      }),
+    await sendEmail({
+      fromAddress: fromEmail(),
+      toAddress: email,
+      toName: email,
+      subject: `You've been invited as ${roleLabel} on PayTrack`,
+      htmlBody: `
+        <div style="font-family:sans-serif;max-width:480px;margin:0 auto">
+          <h2 style="color:#111">Admin Invitation</h2>
+          <p>You've been invited to join the PayTrack admin team as a <strong>${roleLabel}</strong>.</p>
+          <p style="margin:24px 0">
+            <a href="${inviteUrl}" style="display:inline-block;background:#6366f1;color:white;padding:10px 24px;border-radius:6px;text-decoration:none;font-weight:600">
+              Accept Invitation
+            </a>
+          </p>
+          <p style="color:#6b7280;font-size:13px">
+            This invitation expires in 7 days. You can create your account directly on the invitation page.
+          </p>
+        </div>
+      `,
     });
   },
 });
+
 
 export const listPendingInvitations = query({
   args: {},
@@ -429,5 +420,133 @@ export const revokeAdmin = mutation({
     if (profile.userId === myId)
       throw new Error("You cannot revoke your own admin access");
     await ctx.db.patch(profileId, { isAdmin: undefined, adminRole: undefined });
+  },
+});
+
+export const getAnalyticsData = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireAdmin(ctx);
+
+    const [invoices, payments, profiles, tickets] = await Promise.all([
+      ctx.db.query("invoices").take(1000),
+      ctx.db.query("payments").take(1000),
+      ctx.db.query("userProfiles").take(1000),
+      ctx.db.query("supportTickets").take(1000),
+    ]);
+
+    // ── Invoice status counts ─────────────────────────────
+    const invoicesByStatus = {
+      draft: 0, sent: 0, paid: 0, overdue: 0,
+    };
+    let invoiceTotalValue = 0;
+    for (const inv of invoices) {
+      invoicesByStatus[inv.status]++;
+      invoiceTotalValue += inv.total;
+    }
+    const collectionRate = invoices.length
+      ? Math.round((invoicesByStatus.paid / invoices.length) * 100)
+      : 0;
+    const avgInvoiceValue = invoices.length
+      ? Math.round(invoiceTotalValue / invoices.length)
+      : 0;
+
+    // ── Ticket status counts ──────────────────────────────
+    const ticketsByStatus = { open: 0, in_progress: 0, resolved: 0 };
+    for (const t of tickets) {
+      if (t.status === "open") ticketsByStatus.open++;
+      else if (t.status === "in_progress") ticketsByStatus.in_progress++;
+      else if (t.status === "resolved") ticketsByStatus.resolved++;
+    }
+    const ticketResolutionRate = tickets.length
+      ? Math.round((ticketsByStatus.resolved / tickets.length) * 100)
+      : 0;
+
+    const totalRevenue = payments.reduce((s, p) => s + p.amount, 0);
+
+    // ── Monthly helpers ───────────────────────────────────
+    function monthKey(ts: number) {
+      const d = new Date(ts);
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    }
+    function monthLabel(key: string) {
+      const [y, m] = key.split("-");
+      return new Date(Number(y), Number(m) - 1).toLocaleString("en", { month: "short" });
+    }
+    const last6: string[] = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(1);
+      d.setMonth(d.getMonth() - i);
+      last6.push(monthKey(d.getTime()));
+    }
+
+    // ── Monthly revenue ───────────────────────────────────
+    const revenueByMonth: Record<string, number> = Object.fromEntries(last6.map(m => [m, 0]));
+    for (const p of payments) {
+      const k = monthKey(p.paidAt);
+      if (k in revenueByMonth) revenueByMonth[k] += p.amount;
+    }
+    const monthlyRevenue = last6.map(m => ({ month: monthLabel(m), revenue: revenueByMonth[m] }));
+
+    // ── Monthly signups ───────────────────────────────────
+    const signupsByMonth: Record<string, number> = Object.fromEntries(last6.map(m => [m, 0]));
+    for (const p of profiles) {
+      const k = monthKey(p._creationTime);
+      if (k in signupsByMonth) signupsByMonth[k]++;
+    }
+    const monthlySignups = last6.map(m => ({ month: monthLabel(m), users: signupsByMonth[m] }));
+
+    // ── Monthly invoices created ──────────────────────────
+    const invoicesByMonth: Record<string, number> = Object.fromEntries(last6.map(m => [m, 0]));
+    for (const inv of invoices) {
+      const k = monthKey(inv.createdAt);
+      if (k in invoicesByMonth) invoicesByMonth[k]++;
+    }
+    const monthlyInvoices = last6.map(m => ({ month: monthLabel(m), invoices: invoicesByMonth[m] }));
+
+    // ── Payment channels ──────────────────────────────────
+    const channelMap: Record<string, { count: number; amount: number }> = {};
+    for (const p of payments) {
+      const ch = p.channel ?? "other";
+      if (!channelMap[ch]) channelMap[ch] = { count: 0, amount: 0 };
+      channelMap[ch].count++;
+      channelMap[ch].amount += p.amount;
+    }
+    const paymentChannels = Object.entries(channelMap)
+      .map(([channel, d]) => ({ channel, ...d }))
+      .sort((a, b) => b.amount - a.amount);
+
+    return {
+      totalRevenue,
+      avgInvoiceValue,
+      collectionRate,
+      ticketResolutionRate,
+      invoicesByStatus,
+      ticketsByStatus,
+      monthlyRevenue,
+      monthlySignups,
+      monthlyInvoices,
+      paymentChannels,
+      totalUsers: profiles.length,
+      proUsers: profiles.filter(p => p.plan === "pro").length,
+      totalInvoices: invoices.length,
+      totalPayments: payments.length,
+    };
+  },
+});
+
+export const revokeInvitationByEmail = internalMutation({
+  args: { email: v.string() },
+  handler: async (ctx, { email }) => {
+    const invitation = await ctx.db
+      .query("adminInvitations")
+      .withIndex("by_email", (q) => q.eq("email", email.toLowerCase()))
+      .first();
+    if (!invitation) throw new Error(`No invitation found for ${email}`);
+    if (invitation.status !== "pending")
+      throw new Error(`Invitation for ${email} is already ${invitation.status}`);
+    await ctx.db.patch(invitation._id, { status: "expired" });
+    return { revoked: invitation._id, email };
   },
 });

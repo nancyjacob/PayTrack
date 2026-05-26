@@ -1,28 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useQuery } from "convex/react";
-import { useConvexAuth } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { ShieldCheck, Eye, EyeOff, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
+export const ADMIN_SESSION_KEY = "adminSession";
+
 export default function AdminLoginPage() {
   const { signIn } = useAuthActions();
-  const { isAuthenticated, isLoading: authLoading } = useConvexAuth();
   const isAdmin = useQuery(api.admin.isAdmin);
   const router = useRouter();
 
@@ -30,53 +23,43 @@ export default function AdminLoginPage() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  // Set to true after signIn resolves — waits for isAdmin query to catch up
+  const [waitingForAdmin, setWaitingForAdmin] = useState(false);
 
-  // If already authenticated and admin, go straight to admin panel
+  // If an active admin session already exists, skip straight to the dashboard
   useEffect(() => {
-    if (isAuthenticated && isAdmin === true) {
+    if (localStorage.getItem(ADMIN_SESSION_KEY) === "1") {
       router.replace("/admin");
     }
-  }, [isAuthenticated, isAdmin, router]);
+  }, [router]);
+
+  // After signIn completes, wait for isAdmin then grant or deny
+  useEffect(() => {
+    if (!waitingForAdmin) return;
+    if (isAdmin === undefined) return; // still resolving
+
+    if (isAdmin === true) {
+      localStorage.setItem(ADMIN_SESSION_KEY, "1");
+      router.replace("/admin");
+    } else {
+      toast.error("This account does not have admin privileges.");
+      setTimeout(() => {
+        setWaitingForAdmin(false);
+        setLoading(false);
+      }, 0);
+    }
+  }, [isAdmin, waitingForAdmin, router]);
 
   async function handleSignIn(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     try {
       await signIn("password", { email, password, flow: "signIn" });
-      // useEffect above will redirect once isAdmin resolves
+      setWaitingForAdmin(true);
     } catch {
       toast.error("Invalid email or password");
       setLoading(false);
     }
-  }
-
-  // Show loading while auth resolves
-  if (authLoading || (isAuthenticated && isAdmin === undefined)) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-muted/20">
-        <Loader2 size={24} className="animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
-
-  // Signed in but not an admin
-  if (isAuthenticated && isAdmin === false) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-muted/20">
-        <Card className="w-full max-w-sm text-center">
-          <CardContent className="pt-8 pb-8 space-y-3">
-            <ShieldCheck size={36} className="mx-auto text-muted-foreground/40" />
-            <p className="font-semibold">Access Denied</p>
-            <p className="text-sm text-muted-foreground">
-              This account does not have admin privileges.
-            </p>
-            <Button variant="outline" size="sm" onClick={() => router.replace("/dashboard")}>
-              Back to Dashboard
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
   }
 
   return (
@@ -87,11 +70,13 @@ export default function AdminLoginPage() {
             <ShieldCheck size={24} className="text-primary" />
           </div>
           <h1 className="text-2xl font-heading font-semibold">Admin Access</h1>
-          <p className="text-sm text-muted-foreground">Sign in with your admin credentials</p>
+          <p className="text-sm text-muted-foreground">
+            Sign in with your admin credentials
+          </p>
         </div>
 
         <Card>
-          <CardContent className="pt-6">
+          <CardContent className="pt-4">
             <form onSubmit={handleSignIn} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
@@ -103,6 +88,7 @@ export default function AdminLoginPage() {
                   placeholder="admin@example.com"
                   required
                   autoFocus
+                  disabled={loading}
                 />
               </div>
 
@@ -117,6 +103,7 @@ export default function AdminLoginPage() {
                     placeholder="••••••••"
                     className="pr-10"
                     required
+                    disabled={loading}
                   />
                   <button
                     type="button"

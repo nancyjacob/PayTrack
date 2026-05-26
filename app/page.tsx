@@ -15,6 +15,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { LogoFull } from "@/components/logo";
+import { ScrollToPricingButton } from "./_components/scroll-to-pricing";
 
 /* ─── Browser-chrome product frame shown at bottom of hero ─── */
 function ProductFrame() {
@@ -265,9 +266,9 @@ export default function LandingPage() {
             >
               <Link href="/sign-in">Sign in</Link>
             </Button>
-            <Button size="sm" className="ml-1 rounded-full" asChild>
-              <Link href="#pricing">Get started free</Link>
-            </Button>
+            <ScrollToPricingButton size="sm" className="ml-1 rounded-full">
+              Get started free
+            </ScrollToPricingButton>
           </nav>
         </div>
       </header>
@@ -323,13 +324,12 @@ export default function LandingPage() {
             >
               <Link href="/sign-in">Sign in</Link>
             </Button>
-            <Button
+            <ScrollToPricingButton
               size="lg"
               className="w-full rounded-full shadow-md shadow-primary/20 transition-transform hover:scale-[1.02] active:scale-[0.99] sm:w-auto sm:min-w-44"
-              asChild
             >
-              <Link href="#pricing">Get started free</Link>
-            </Button>
+              Get started free
+            </ScrollToPricingButton>
           </div>
 
           {/* Trust micro-copy */}

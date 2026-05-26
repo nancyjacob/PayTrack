@@ -26,7 +26,7 @@ function StatCard({
 }) {
   return (
     <Card>
-      <CardContent className="pt-5 pb-5">
+      <CardContent className="pt-4 pb-4">
         <div className="flex items-start justify-between">
           <div>
             <p className="text-sm text-muted-foreground">{title}</p>

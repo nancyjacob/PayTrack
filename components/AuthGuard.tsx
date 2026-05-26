@@ -14,7 +14,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (isLoading) return;
     if (!isAuthenticated) {
-      router.replace("/");
+      router.replace("/sign-in");
       return;
     }
     if (profile === null && pathname !== "/settings") {

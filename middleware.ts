@@ -4,7 +4,13 @@ import {
   nextjsMiddlewareRedirect,
 } from "@convex-dev/auth/nextjs/server";
 
-const isPublicPage = createRouteMatcher(["/", "/sign-in", "/sign-up", "/pay(.*)"]);
+const isPublicPage = createRouteMatcher([
+  "/",
+  "/sign-in",
+  "/sign-up",
+  "/pay(.*)",
+  "/admin(.*)", // admin layout owns all routing inside /admin
+]);
 
 export default convexAuthNextjsMiddleware(async (request, { convexAuth }) => {
   const authenticated = await convexAuth.isAuthenticated();

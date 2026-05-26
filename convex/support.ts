@@ -2,6 +2,7 @@ import { mutation, query, internalAction } from "./_generated/server";
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { internal } from "./_generated/api";
+import { sendEmail, fromEmail } from "./lib/email";
 
 export const submitSupportTicket = mutation({
   args: {
@@ -39,30 +40,21 @@ export const sendSupportEmail = internalAction({
   },
   handler: async (_ctx, args) => {
     const adminEmail = process.env.SUPPORT_EMAIL ?? "support@paytrack.app";
-    const resendApiKey = process.env.RESEND_API_KEY;
-    if (!resendApiKey) return;
 
-    await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${resendApiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        from: "PayTrack Support <noreply@paytrack.app>",
-        to: [adminEmail],
-        reply_to: args.email,
-        subject: `[Support] ${args.subject}`,
-        html: `
-          <h2>New Support Request</h2>
-          <p><strong>From:</strong> ${args.name} &lt;${args.email}&gt;</p>
-          <p><strong>Subject:</strong> ${args.subject}</p>
-          <p><strong>Message:</strong></p>
-          <p>${args.message.replace(/\n/g, "<br>")}</p>
-          <hr>
-          <p style="color:#888;font-size:12px">Ticket ID: ${args.ticketId}</p>
-        `,
-      }),
+    await sendEmail({
+      fromAddress: fromEmail(),
+      toAddress: adminEmail,
+      toName: "PayTrack Support",
+      subject: `[Support] ${args.subject}`,
+      htmlBody: `
+        <h2>New Support Request</h2>
+        <p><strong>From:</strong> ${args.name} &lt;${args.email}&gt;</p>
+        <p><strong>Subject:</strong> ${args.subject}</p>
+        <p><strong>Message:</strong></p>
+        <p>${args.message.replace(/\n/g, "<br>")}</p>
+        <hr>
+        <p style="color:#888;font-size:12px">Ticket ID: ${args.ticketId}</p>
+      `,
     });
   },
 });

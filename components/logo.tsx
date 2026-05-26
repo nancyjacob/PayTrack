@@ -67,22 +67,6 @@ export function LogoMark({ size = 40, className = "" }: LogoMarkProps) {
         strokeLinejoin="round"
       />
 
-      {/* ── Checkmark badge (bottom-right, sits on top of background) ── */}
-      {/* Shadow ring for depth */}
-      <circle cx="31.5" cy="31.5" r="9.5" fill="black" fillOpacity="0.18" />
-      {/* Green circle */}
-      <circle cx="31.5" cy="31" r="9" fill="#16a34a" />
-      {/* Inner highlight */}
-      <circle cx="31.5" cy="31" r="9" fill="white" fillOpacity="0.08" />
-      {/* Tick */}
-      <path
-        d="M27.5 31.5 L30.2 34.2 L35.5 27.5"
-        stroke="white"
-        strokeWidth="2.3"
-        fill="none"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
     </svg>
   );
 }

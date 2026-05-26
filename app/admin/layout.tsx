@@ -4,7 +4,7 @@ import { useQuery } from "convex/react";
 import { useConvexAuth } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useRouter, usePathname } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useAuthActions } from "@convex-dev/auth/react";
 import {
@@ -16,6 +16,7 @@ import {
   ShieldCheck,
   ChevronRight,
   UserCog,
+  BarChart2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Loader2, Crown, Shield, Headphones } from "lucide-react";
@@ -24,6 +25,7 @@ import { Badge } from "@/components/ui/badge";
 
 const adminNav = [
   { href: "/admin", label: "Overview", icon: LayoutDashboard, exact: true },
+  { href: "/admin/analytics", label: "Analytics", icon: BarChart2, exact: false },
   { href: "/admin/users", label: "Users", icon: Users, exact: false },
   { href: "/admin/invoices", label: "Invoices", icon: FileText, exact: false },
   { href: "/admin/support", label: "Support", icon: MessageSquare, exact: false },
@@ -36,6 +38,7 @@ function AdminSidebar() {
   const { signOut } = useAuthActions();
 
   async function handleSignOut() {
+    localStorage.removeItem("adminSession");
     await signOut();
     router.replace("/admin/login");
   }
@@ -151,26 +154,31 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const router = useRouter();
   const pathname = usePathname();
 
+  // null = not yet read from localStorage (SSR safe)
+  const [adminSession, setAdminSession] = useState<boolean | null>(null);
+
   const isPublicAdminPage =
     pathname === "/admin/login" || pathname.startsWith("/admin/accept-invite");
 
+  // Read the admin session flag on the client
+  useEffect(() => {
+    setAdminSession(localStorage.getItem("adminSession") === "1");
+  }, []);
+
   useEffect(() => {
     if (isPublicAdminPage) return;
-    if (authLoading) return;
-    if (!isAuthenticated) {
-      router.replace("/admin/login");
-      return;
-    }
-    if (isAdmin === false) {
-      router.replace("/admin/login");
-    }
-  }, [isAuthenticated, isAdmin, authLoading, router, isPublicAdminPage]);
+    if (authLoading || adminSession === null) return;
 
-  // Public pages (login, accept-invite) render without the admin shell
+    if (!isAuthenticated || !isAdmin || !adminSession) {
+      router.replace("/admin/login");
+    }
+  }, [isAuthenticated, isAdmin, authLoading, adminSession, router, isPublicAdminPage]);
+
+  // Public pages render without the admin shell
   if (isPublicAdminPage) return <>{children}</>;
 
-  // Loading state
-  if (authLoading || isAdmin === undefined) {
+  // Wait for all async checks before rendering
+  if (authLoading || isAdmin === undefined || adminSession === null) {
     return (
       <div className="flex h-svh items-center justify-center">
         <Loader2 size={24} className="animate-spin text-muted-foreground" />
@@ -178,15 +186,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     );
   }
 
-  // Not authorized — blank while redirect fires
-  if (!isAuthenticated || !isAdmin) return null;
+  // Blank while redirect fires
+  if (!isAuthenticated || !isAdmin || !adminSession) return null;
 
   return (
     <div className="flex h-svh overflow-hidden">
       <AdminSidebar />
       <div className="flex flex-1 flex-col overflow-hidden">
         <AdminTopbar />
-        <main className="flex-1 overflow-y-auto bg-muted/20 p-6">{children}</main>
+        <main className="flex-1 overflow-y-auto bg-muted/20 p-4">{children}</main>
       </div>
     </div>
   );

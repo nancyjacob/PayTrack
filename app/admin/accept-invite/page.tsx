@@ -4,6 +4,7 @@ import { Suspense, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useQuery, useMutation } from "convex/react";
 import { useConvexAuth } from "convex/react";
+import { useAuthActions } from "@convex-dev/auth/react";
 import { api } from "@/convex/_generated/api";
 import {
   Card,
@@ -13,8 +14,19 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { ShieldCheck, Crown, Shield, Headphones, Loader2, CheckCircle2, XCircle } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  ShieldCheck,
+  Crown,
+  Shield,
+  Headphones,
+  Loader2,
+  CheckCircle2,
+  XCircle,
+  Eye,
+  EyeOff,
+} from "lucide-react";
 import { toast } from "sonner";
 
 function roleInfo(role: string) {
@@ -30,21 +42,57 @@ function AcceptInviteContent() {
   const token = params.get("token") ?? "";
   const router = useRouter();
   const { isAuthenticated, isLoading: authLoading } = useConvexAuth();
+  const { signIn } = useAuthActions();
   const invitation = useQuery(api.admin.getInvitationByToken, token ? { token } : "skip");
   const acceptInvitation = useMutation(api.admin.acceptAdminInvitation);
+
   const [accepting, setAccepting] = useState(false);
   const [accepted, setAccepted] = useState(false);
+  const [isNewAccount, setIsNewAccount] = useState(true);
+  const [name, setName] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   async function handleAccept() {
     setAccepting(true);
     try {
       const result = await acceptInvitation({ token });
+      localStorage.setItem("adminSession", "1");
       setAccepted(true);
       toast.success(`Welcome! You now have ${roleInfo(result.role).label} access.`);
       setTimeout(() => router.replace("/admin"), 2000);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to accept invitation");
-    } finally {
+      setAccepting(false);
+    }
+  }
+
+  async function handleSignUpAndAccept(e: React.FormEvent) {
+    e.preventDefault();
+    if (!invitation) return;
+    setAccepting(true);
+    try {
+      if (isNewAccount) {
+        await signIn("password", {
+          email: invitation.email,
+          name: name.trim(),
+          password,
+          flow: "signUp",
+        });
+      } else {
+        await signIn("password", {
+          email: invitation.email,
+          password,
+          flow: "signIn",
+        });
+      }
+      const result = await acceptInvitation({ token });
+      localStorage.setItem("adminSession", "1");
+      setAccepted(true);
+      toast.success(`Welcome! You now have ${roleInfo(result.role).label} access.`);
+      setTimeout(() => router.replace("/admin"), 2000);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Invalid credentials or invitation error");
       setAccepting(false);
     }
   }
@@ -161,35 +209,8 @@ function AcceptInviteContent() {
               <p className="font-medium">{invitation.email}</p>
             </div>
 
-            {!isAuthenticated ? (
-              <div className="space-y-3">
-                <p className="text-sm text-muted-foreground">
-                  Sign in to your PayTrack account with{" "}
-                  <strong>{invitation.email}</strong> to accept this invitation.
-                </p>
-                <Button
-                  className="w-full"
-                  onClick={() =>
-                    router.push(
-                      `/sign-in?redirect=${encodeURIComponent(`/admin/accept-invite?token=${token}`)}`
-                    )
-                  }
-                >
-                  Sign In to Accept
-                </Button>
-                <p className="text-xs text-center text-muted-foreground">
-                  No account?{" "}
-                  <a href="/sign-up" className="underline underline-offset-4 hover:text-foreground">
-                    Create one first
-                  </a>
-                </p>
-              </div>
-            ) : (
-              <Button
-                className="w-full"
-                onClick={handleAccept}
-                disabled={accepting}
-              >
+            {isAuthenticated ? (
+              <Button className="w-full" onClick={handleAccept} disabled={accepting}>
                 {accepting ? (
                   <>
                     <Loader2 size={14} className="mr-2 animate-spin" />
@@ -199,6 +220,84 @@ function AcceptInviteContent() {
                   "Accept Invitation"
                 )}
               </Button>
+            ) : (
+              <form onSubmit={handleSignUpAndAccept} className="space-y-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={invitation.email}
+                    disabled
+                    className="bg-muted/50"
+                  />
+                </div>
+
+                {isNewAccount && (
+                  <div className="space-y-1.5">
+                    <Label htmlFor="name">Full Name</Label>
+                    <Input
+                      id="name"
+                      type="text"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="Your full name"
+                      required={isNewAccount}
+                      autoFocus
+                    />
+                  </div>
+                )}
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="password">Password</Label>
+                  <div className="relative">
+                    <Input
+                      id="password"
+                      type={showPassword ? "text" : "password"}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="pr-10"
+                      required
+                      autoFocus={!isNewAccount}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((v) => !v)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      aria-label={showPassword ? "Hide password" : "Show password"}
+                    >
+                      {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                </div>
+
+                <Button type="submit" className="w-full" disabled={accepting}>
+                  {accepting ? (
+                    <>
+                      <Loader2 size={14} className="mr-2 animate-spin" />
+                      {isNewAccount ? "Creating account…" : "Signing in…"}
+                    </>
+                  ) : isNewAccount ? (
+                    "Create Account & Accept"
+                  ) : (
+                    "Sign In & Accept"
+                  )}
+                </Button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsNewAccount((v) => !v);
+                    setPassword("");
+                  }}
+                  className="text-xs text-center text-muted-foreground underline underline-offset-4 hover:text-foreground w-full"
+                >
+                  {isNewAccount
+                    ? "Already have a PayTrack account? Sign in instead"
+                    : "New to PayTrack? Create an account instead"}
+                </button>
+              </form>
             )}
           </CardContent>
         </Card>
