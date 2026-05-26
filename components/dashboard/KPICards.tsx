@@ -24,7 +24,7 @@ export function KPICards() {
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         {Array.from({ length: 8 }).map((_, i) => (
           <Card key={i}>
-            <CardContent className="pt-6">
+            <CardContent>
               <Skeleton className="h-16 w-full" />
             </CardContent>
           </Card>

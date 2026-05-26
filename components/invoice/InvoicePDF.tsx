@@ -82,12 +82,6 @@ function boldOf(font: string) {
   return "Helvetica-Bold";
 }
 
-function fmt(kobo: number) {
-  return new Intl.NumberFormat("en-NG", { style: "currency", currency: "NGN" }).format(
-    kobo / 100
-  );
-}
-
 function fmtDate(ts: number) {
   return new Date(ts).toLocaleDateString("en-NG", {
     year: "numeric",
@@ -105,6 +99,7 @@ type InvoiceData = {
   tax: number;
   total: number;
   taxRate: number;
+  currency?: string;
   notes?: string;
   brandColor?: string;
   brandFont?: "Helvetica" | "Times-Roman" | "Courier";
@@ -132,6 +127,17 @@ function InvoiceDocument({ invoice }: { invoice: InvoiceData }) {
   const bold = boldOf(font);
   const footerText =
     invoice.invoiceFooter ?? "Generated with PayTrack • Thank you for your business";
+
+  const currency = invoice.currency ?? "NGN";
+  const currencyLocale: Record<string, string> = { NGN: "en-NG", USD: "en-US", GBP: "en-GB" };
+  const locale = currencyLocale[currency] ?? "en-NG";
+  function fmt(kobo: number) {
+    return new Intl.NumberFormat(locale, {
+      style: "currency",
+      currency,
+      minimumFractionDigits: 2,
+    }).format(kobo / 100);
+  }
 
   return (
     <Document>

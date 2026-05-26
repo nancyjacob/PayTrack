@@ -12,6 +12,7 @@ import type * as admin from "../admin.js";
 import type * as ai from "../ai.js";
 import type * as analytics from "../analytics.js";
 import type * as auth from "../auth.js";
+import type * as billing from "../billing.js";
 import type * as clients from "../clients.js";
 import type * as crons from "../crons.js";
 import type * as http from "../http.js";
@@ -32,6 +33,7 @@ declare const fullApi: ApiFromModules<{
   ai: typeof ai;
   analytics: typeof analytics;
   auth: typeof auth;
+  billing: typeof billing;
   clients: typeof clients;
   crons: typeof crons;
   http: typeof http;

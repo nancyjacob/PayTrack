@@ -9,8 +9,15 @@ import { Component, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { InvoiceStatusBadge } from "@/components/invoice/InvoiceStatusBadge";
-import { formatNaira, formatDate, type InvoiceStatus } from "@/lib/utils";
+import { formatCurrency, formatDate, type InvoiceStatus } from "@/lib/utils";
 import {
   ArrowLeft,
   Send,
@@ -152,16 +159,16 @@ export default function InvoiceDetailPage() {
 
         <div className="flex flex-wrap gap-2 justify-end">
           <PDFErrorBoundary>
-                <InvoicePDFDownload
-                  invoice={{
-                    ...invoice,
-                    brandColor: profile?.brandColor ?? undefined,
-                    brandFont: profile?.brandFont ?? undefined,
-                    invoiceFooter: profile?.invoiceFooter ?? undefined,
-                    logoUrl: logoUrl ?? undefined,
-                  }}
-                />
-              </PDFErrorBoundary>
+            <InvoicePDFDownload
+              invoice={{
+                ...invoice,
+                brandColor: profile?.brandColor ?? undefined,
+                brandFont: profile?.brandFont ?? undefined,
+                invoiceFooter: profile?.invoiceFooter ?? undefined,
+                logoUrl: logoUrl ?? undefined,
+              }}
+            />
+          </PDFErrorBoundary>
 
           {invoice.status !== "paid" && (
             <Button variant="outline" size="sm" asChild>
@@ -172,7 +179,6 @@ export default function InvoiceDetailPage() {
             </Button>
           )}
 
-          {/* Edit — available for draft, sent, overdue */}
           {canEdit && (
             <Button variant="outline" size="sm" asChild>
               <Link href={`/invoices/${invoice._id}/edit`}>
@@ -182,13 +188,11 @@ export default function InvoiceDetailPage() {
             </Button>
           )}
 
-          {/* Duplicate — always available */}
           <Button variant="outline" size="sm" onClick={handleDuplicate}>
             <Copy size={14} className="mr-1.5" />
             Duplicate
           </Button>
 
-          {/* Send — draft only */}
           {invoice.status === "draft" && (
             <Button size="sm" onClick={handleSend}>
               <Send size={14} className="mr-1.5" />
@@ -196,7 +200,6 @@ export default function InvoiceDetailPage() {
             </Button>
           )}
 
-          {/* Resend — sent / overdue */}
           {(invoice.status === "sent" || invoice.status === "overdue") && (
             <Button variant="outline" size="sm" onClick={handleResend}>
               <RefreshCw size={14} className="mr-1.5" />
@@ -204,7 +207,6 @@ export default function InvoiceDetailPage() {
             </Button>
           )}
 
-          {/* Delete — draft only */}
           {invoice.status === "draft" && (
             <Button
               variant="outline"
@@ -218,142 +220,171 @@ export default function InvoiceDetailPage() {
         </div>
       </div>
 
-      {/* Details card */}
-      <div className="rounded-lg border bg-card p-6 space-y-6">
-        {/* Bill To / Dates */}
-        <div className="grid grid-cols-2 gap-6">
-          <div>
-            <p className="text-xs uppercase text-muted-foreground font-medium mb-2">
-              Bill To
-            </p>
-            <p className="font-semibold">{invoice.client?.name ?? "—"}</p>
-            <p className="text-sm text-muted-foreground">
-              {invoice.client?.email ?? "—"}
-            </p>
-            {invoice.client?.address && (
-              <p className="text-sm text-muted-foreground mt-1">
-                {invoice.client.address}
-              </p>
-            )}
-          </div>
-          <div className="text-right">
-            <p className="text-xs uppercase text-muted-foreground font-medium mb-2">
-              Dates
-            </p>
-            <p className="text-sm">
-              <span className="text-muted-foreground">Issued:</span>{" "}
-              {formatDate(invoice.issueDate)}
-            </p>
-            <p className="text-sm mt-1">
-              <span className="text-muted-foreground">Due:</span>{" "}
-              <span
-                className={
-                  invoice.status === "overdue" ? "text-red-600 font-medium" : ""
-                }
-              >
-                {formatDate(invoice.dueDate)}
-              </span>
-            </p>
-            {invoice.paidAt && (
-              <p className="text-sm mt-1 text-green-600">
-                Paid: {formatDate(invoice.paidAt)}
-              </p>
-            )}
-          </div>
-        </div>
+      {/* Tabs */}
+      <Tabs defaultValue="details" className="space-y-6">
+        <TabsList className="w-full justify-start h-auto flex-wrap gap-1 bg-muted/50 p-1">
+          <TabsTrigger value="details">Details</TabsTrigger>
+          <TabsTrigger value="items">Line Items</TabsTrigger>
+          <TabsTrigger value="notes">Notes & Payment</TabsTrigger>
+        </TabsList>
 
-        <Separator />
+        {/* ── Details ── */}
+        <TabsContent value="details" className="space-y-6 mt-0">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Bill To</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-1">
+              <p className="font-semibold">{invoice.client?.name ?? "—"}</p>
+              <p className="text-sm text-muted-foreground">{invoice.client?.email ?? "—"}</p>
+              {invoice.client?.address && (
+                <p className="text-sm text-muted-foreground">{invoice.client.address}</p>
+              )}
+            </CardContent>
+          </Card>
 
-        {/* Line items */}
-        <div>
-          <div className="grid grid-cols-12 gap-2 text-xs font-medium text-muted-foreground uppercase mb-2 px-1">
-            <span className="col-span-6">Description</span>
-            <span className="col-span-2 text-center">Qty</span>
-            <span className="col-span-2 text-right">Unit Price</span>
-            <span className="col-span-2 text-right">Total</span>
-          </div>
-          {invoice.items.map(
-            (
-              item: {
-                description: string;
-                quantity: number;
-                unitPrice: number;
-                total: number;
-              },
-              i: number
-            ) => (
-              <div
-                key={i}
-                className="grid grid-cols-12 gap-2 py-3 border-b border-border last:border-0 px-1"
-              >
-                <span className="col-span-6 text-sm">{item.description}</span>
-                <span className="col-span-2 text-center text-sm text-muted-foreground">
-                  {item.quantity}
-                </span>
-                <span className="col-span-2 text-right text-sm text-muted-foreground">
-                  {formatNaira(item.unitPrice)}
-                </span>
-                <span className="col-span-2 text-right text-sm font-medium">
-                  {formatNaira(item.total)}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Dates</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Issue Date</span>
+                <span className="font-medium">{formatDate(invoice.issueDate)}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Due Date</span>
+                <span
+                  className={`font-medium ${invoice.status === "overdue" ? "text-red-600" : ""}`}
+                >
+                  {formatDate(invoice.dueDate)}
                 </span>
               </div>
-            )
+              {invoice.paidAt && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Paid On</span>
+                  <span className="font-medium text-green-600">{formatDate(invoice.paidAt)}</span>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ── Line Items ── */}
+        <TabsContent value="items" className="space-y-6 mt-0">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center justify-between">
+                Line Items
+                <span className="text-xs font-normal text-muted-foreground">
+                  Currency: {invoice.currency ?? "NGN"}
+                </span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-12 gap-2 text-xs font-medium text-muted-foreground uppercase px-1">
+                <span className="col-span-6">Description</span>
+                <span className="col-span-2 text-center">Qty</span>
+                <span className="col-span-2 text-right">Unit Price</span>
+                <span className="col-span-2 text-right">Total</span>
+              </div>
+              {invoice.items.map(
+                (
+                  item: {
+                    description: string;
+                    quantity: number;
+                    unitPrice: number;
+                    total: number;
+                  },
+                  i: number
+                ) => (
+                  <div
+                    key={i}
+                    className="grid grid-cols-12 gap-2 py-3 border-b border-border last:border-0 px-1"
+                  >
+                    <span className="col-span-6 text-sm">{item.description}</span>
+                    <span className="col-span-2 text-center text-sm text-muted-foreground">
+                      {item.quantity}
+                    </span>
+                    <span className="col-span-2 text-right text-sm text-muted-foreground">
+                      {formatCurrency(item.unitPrice, invoice.currency)}
+                    </span>
+                    <span className="col-span-2 text-right text-sm font-medium">
+                      {formatCurrency(item.total, invoice.currency)}
+                    </span>
+                  </div>
+                )
+              )}
+
+              <Separator />
+
+              <div className="flex justify-end">
+                <div className="w-56 space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Subtotal</span>
+                    <span>{formatCurrency(invoice.subtotal, invoice.currency)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Tax ({invoice.taxRate}%)</span>
+                    <span>{formatCurrency(invoice.tax, invoice.currency)}</span>
+                  </div>
+                  <Separator />
+                  <div className="flex justify-between font-semibold text-base">
+                    <span>Total</span>
+                    <span className="text-primary">
+                      {formatCurrency(invoice.total, invoice.currency)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ── Notes & Payment ── */}
+        <TabsContent value="notes" className="space-y-6 mt-0">
+          {invoice.notes && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Notes</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground">{invoice.notes}</p>
+              </CardContent>
+            </Card>
           )}
-        </div>
 
-        <Separator />
+          {invoice.status !== "paid" && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Payment Link</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <p className="text-sm text-muted-foreground">
+                  Share this link with your client so they can pay directly.
+                </p>
+                <p className="text-sm font-mono bg-muted px-3 py-2 rounded-md break-all">
+                  {typeof window !== "undefined"
+                    ? `${window.location.origin}${payLink}`
+                    : payLink}
+                </p>
+                <Button variant="outline" size="sm" asChild>
+                  <Link href={payLink} target="_blank">
+                    <ExternalLink size={14} className="mr-1.5" />
+                    Open payment page
+                  </Link>
+                </Button>
+              </CardContent>
+            </Card>
+          )}
 
-        {/* Totals */}
-        <div className="flex justify-end">
-          <div className="w-56 space-y-2">
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Subtotal</span>
-              <span>{formatNaira(invoice.subtotal)}</span>
+          {!invoice.notes && invoice.status === "paid" && (
+            <div className="text-center py-12 text-sm text-muted-foreground">
+              No notes on this invoice.
             </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">
-                Tax ({invoice.taxRate}%)
-              </span>
-              <span>{formatNaira(invoice.tax)}</span>
-            </div>
-            <Separator />
-            <div className="flex justify-between font-semibold text-base">
-              <span>Total</span>
-              <span className="text-primary">{formatNaira(invoice.total)}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Notes */}
-        {invoice.notes && (
-          <>
-            <Separator />
-            <div>
-              <p className="text-xs uppercase text-muted-foreground font-medium mb-2">
-                Notes
-              </p>
-              <p className="text-sm text-muted-foreground">{invoice.notes}</p>
-            </div>
-          </>
-        )}
-
-        {/* Payment link */}
-        {invoice.status !== "paid" && (
-          <>
-            <Separator />
-            <div>
-              <p className="text-xs uppercase text-muted-foreground font-medium mb-2">
-                Payment Link
-              </p>
-              <p className="text-sm font-mono bg-muted px-3 py-2 rounded-md break-all">
-                {typeof window !== "undefined"
-                  ? `${window.location.origin}${payLink}`
-                  : payLink}
-              </p>
-            </div>
-          </>
-        )}
-      </div>
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

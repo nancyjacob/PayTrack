@@ -27,6 +27,7 @@ import {
   Cell,
   Legend,
 } from "recharts";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   TrendingUp,
   TrendingDown,
@@ -109,11 +110,11 @@ function KPICard({
 }) {
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between pb-2 pt-4">
+      <CardHeader className="flex flex-row items-center justify-between pb-2">
         <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
         <Icon size={16} className={iconColor} />
       </CardHeader>
-      <CardContent className="pb-4">
+      <CardContent>
         <div className="text-2xl font-bold font-heading">{value}</div>
         <div className="mt-1">
           <GrowthBadge value={growth} suffix={growthSuffix} inverse={inverseGrowth} />
@@ -165,21 +166,15 @@ export default function AnalyticsPage() {
             Performance overview across your invoicing activity
           </p>
         </div>
-        <div className="flex items-center gap-1 rounded-lg border bg-muted/50 p-1">
-          {RANGES.map((r) => (
-            <button
-              key={r.key}
-              onClick={() => handleRangeChange(r.key)}
-              className={
-                activeRange === r.key
-                  ? "rounded-md bg-background px-3 py-1.5 text-xs font-semibold shadow-sm"
-                  : "rounded-md px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
-              }
-            >
-              {r.label}
-            </button>
-          ))}
-        </div>
+        <Tabs value={activeRange} onValueChange={(v) => handleRangeChange(v as Range)}>
+          <TabsList className="h-auto flex-wrap gap-1 bg-muted/50 p-1">
+            {RANGES.map((r) => (
+              <TabsTrigger key={r.key} value={r.key}>
+                {r.label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
       </div>
 
       {/* KPI Cards */}
@@ -187,7 +182,7 @@ export default function AnalyticsPage() {
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           {Array.from({ length: 4 }).map((_, i) => (
             <Card key={i}>
-              <CardContent className="pt-6">
+              <CardContent>
                 <Skeleton className="h-16 w-full" />
               </CardContent>
             </Card>

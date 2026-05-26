@@ -23,9 +23,7 @@ export default function DashboardPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-heading font-semibold">
-            {profile?.businessName ? `${profile.businessName}` : "Dashboard"}
-          </h1>
+          <h1 className="text-2xl font-heading font-semibold">Dashboard</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
             {profile
               ? `${profile.plan === "free" ? `Free plan · ${profile.invoiceCount}/5 invoices used` : "Pro plan"}`

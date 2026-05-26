@@ -90,7 +90,7 @@ export default function AdminSupportPage() {
       {tickets && (
         <div className="grid grid-cols-3 gap-4">
           <Card>
-            <CardContent className="pt-4 pb-4 flex items-center gap-3">
+            <CardContent className="flex items-center gap-3">
               <AlertCircle size={18} className="text-primary" />
               <div>
                 <p className="text-2xl font-bold">{openCount}</p>
@@ -99,7 +99,7 @@ export default function AdminSupportPage() {
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="pt-4 pb-4 flex items-center gap-3">
+            <CardContent className="flex items-center gap-3">
               <Clock size={18} className="text-amber-500" />
               <div>
                 <p className="text-2xl font-bold">{inProgressCount}</p>
@@ -108,7 +108,7 @@ export default function AdminSupportPage() {
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="pt-4 pb-4 flex items-center gap-3">
+            <CardContent className="flex items-center gap-3">
               <CheckCircle2 size={18} className="text-green-500" />
               <div>
                 <p className="text-2xl font-bold">{resolvedCount}</p>

@@ -47,7 +47,7 @@ export default function PayPage() {
       key: process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY!,
       email: invoice.client.email,
       amount: invoice.total, // already in kobo
-      currency: "NGN",
+      currency: invoice.currency ?? "NGN",
       ref: `paytrack_${invoiceId}_${Date.now()}`,
       metadata: {
         invoiceId,

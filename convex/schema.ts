@@ -19,6 +19,9 @@ export default defineSchema({
       v.union(v.literal("Helvetica"), v.literal("Times-Roman"), v.literal("Courier"))
     ),
     invoiceFooter: v.optional(v.string()),
+    defaultCurrency: v.optional(
+      v.union(v.literal("NGN"), v.literal("USD"), v.literal("GBP"))
+    ),
     plan: v.union(v.literal("free"), v.literal("pro")),
     invoiceCount: v.number(),
     bankName: v.optional(v.string()),
@@ -27,6 +30,8 @@ export default defineSchema({
     adminRole: v.optional(
       v.union(v.literal("super_admin"), v.literal("admin"), v.literal("support"))
     ),
+    paidPaymentCount: v.optional(v.number()),
+    platformFeeOwed: v.optional(v.number()),
   })
     .index("by_userId", ["userId"])
     .index("by_email", ["email"]),

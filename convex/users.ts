@@ -41,6 +41,9 @@ export const createOrUpdateProfile = mutation({
       v.union(v.literal("Helvetica"), v.literal("Times-Roman"), v.literal("Courier"))
     ),
     invoiceFooter: v.optional(v.string()),
+    defaultCurrency: v.optional(
+      v.union(v.literal("NGN"), v.literal("USD"), v.literal("GBP"))
+    ),
   },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);

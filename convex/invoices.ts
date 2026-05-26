@@ -249,6 +249,7 @@ export const createInvoice = mutation({
     ),
     notes: v.optional(v.string()),
     taxRate: v.number(),
+    currency: v.optional(v.union(v.literal("NGN"), v.literal("USD"), v.literal("GBP"))),
   },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
@@ -260,10 +261,6 @@ export const createInvoice = mutation({
       .unique();
 
     if (!profile) throw new Error("Complete your business profile first");
-
-    if (profile.plan === "free" && profile.invoiceCount >= 5) {
-      throw new Error("Free plan limit reached (5 invoices). Upgrade to Pro.");
-    }
 
     const year = new Date().getFullYear();
     const seq = String(profile.invoiceCount + 1).padStart(3, "0");
@@ -288,7 +285,7 @@ export const createInvoice = mutation({
       total,
       taxRate: args.taxRate,
       notes: args.notes,
-      currency: "NGN",
+      currency: args.currency ?? "NGN",
       createdAt: Date.now(),
     });
 
@@ -327,6 +324,7 @@ export const updateInvoice = mutation({
     ),
     notes: v.optional(v.string()),
     taxRate: v.optional(v.number()),
+    currency: v.optional(v.union(v.literal("NGN"), v.literal("USD"), v.literal("GBP"))),
   },
   handler: async (ctx, { invoiceId, items, taxRate, ...rest }) => {
     const userId = await getAuthUserId(ctx);
@@ -396,6 +394,16 @@ export const sendInvoice = mutation({
     const invoice = await ctx.db.get(invoiceId);
     if (!invoice || invoice.userId !== userId) throw new Error("Not found");
 
+    const profile = await ctx.db
+      .query("userProfiles")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .unique();
+    if ((profile?.platformFeeOwed ?? 0) >= 50000) {
+      throw new Error(
+        "You have ₦500+ in outstanding platform fees. Please pay them before sending invoices."
+      );
+    }
+
     await ctx.db.patch(invoiceId, { status: "sent" });
     await ctx.scheduler.runAfter(0, internal.invoices.sendInvoiceEmail, { invoiceId });
   },
@@ -428,8 +436,6 @@ export const duplicateInvoice = mutation({
       .withIndex("by_userId", (q) => q.eq("userId", userId))
       .unique();
     if (!profile) throw new Error("Complete your business profile first");
-    if (profile.plan === "free" && profile.invoiceCount >= 5)
-      throw new Error("Free plan limit reached. Upgrade to Pro.");
 
     const items = await ctx.db
       .query("invoiceItems")
@@ -499,6 +505,20 @@ export const markAsPaid = internalMutation({
       channel,
       paidAt: Date.now(),
     });
+
+    // Platform fee: first 5 payments free, then ₦100 (10000 kobo) per payment
+    const profile = await ctx.db
+      .query("userProfiles")
+      .withIndex("by_userId", (q) => q.eq("userId", invoice.userId))
+      .unique();
+    if (profile) {
+      const newCount = (profile.paidPaymentCount ?? 0) + 1;
+      const feeIncrement = newCount > 5 ? 10000 : 0;
+      await ctx.db.patch(profile._id, {
+        paidPaymentCount: newCount,
+        platformFeeOwed: (profile.platformFeeOwed ?? 0) + feeIncrement,
+      });
+    }
   },
 });
 

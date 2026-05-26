@@ -21,8 +21,16 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { Upload, X } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 type BrandFont = "Helvetica" | "Times-Roman" | "Courier";
+type Currency = "NGN" | "USD" | "GBP";
+
+const CURRENCIES: { code: Currency; label: string; symbol: string }[] = [
+  { code: "NGN", label: "₦ Naira", symbol: "₦" },
+  { code: "USD", label: "$ Dollar", symbol: "$" },
+  { code: "GBP", label: "£ Pound", symbol: "£" },
+];
 
 type Profile = NonNullable<ReturnType<typeof useQuery<typeof api.users.getMyProfile>>>;
 
@@ -131,6 +139,7 @@ function SettingsForm({ profile, isOnboarding = false }: { profile: Profile; isO
   const [brandColor, setBrandColor] = useState(profile.brandColor ?? "#4f46e5");
   const [brandFont, setBrandFont] = useState<BrandFont>(profile.brandFont ?? "Helvetica");
   const [invoiceFooter, setInvoiceFooter] = useState(profile.invoiceFooter ?? "");
+  const [defaultCurrency, setDefaultCurrency] = useState<Currency>(profile.defaultCurrency ?? "NGN");
   const [loading, setLoading] = useState(false);
 
   async function handleLogoFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -167,7 +176,7 @@ function SettingsForm({ profile, isOnboarding = false }: { profile: Profile; isO
     e.preventDefault();
     setLoading(true);
     try {
-      await updateProfile({ businessName, ownerName, phone: phone || undefined, address: address || undefined, bankName: bankName || undefined, bankAccount: bankAccount || undefined, brandColor, brandFont, invoiceFooter: invoiceFooter || undefined });
+      await updateProfile({ businessName, ownerName, phone: phone || undefined, address: address || undefined, bankName: bankName || undefined, bankAccount: bankAccount || undefined, brandColor, brandFont, invoiceFooter: invoiceFooter || undefined, defaultCurrency });
       toast.success(isOnboarding ? "Setup complete! Welcome to PayTrack." : "Profile saved");
       if (isOnboarding) router.replace("/dashboard");
     } catch (err) {
@@ -230,6 +239,7 @@ function SettingsForm({ profile, isOnboarding = false }: { profile: Profile; isO
           <TabsTrigger value="business">Business Details</TabsTrigger>
           <TabsTrigger value="banking">Banking Details</TabsTrigger>
           <TabsTrigger value="branding">Brand & Style</TabsTrigger>
+          <TabsTrigger value="preferences">Preferences</TabsTrigger>
           <TabsTrigger value="plan">Plan & Billing</TabsTrigger>
         </TabsList>
 
@@ -352,6 +362,45 @@ function SettingsForm({ profile, isOnboarding = false }: { profile: Profile; isO
                   <p className="text-xs font-medium text-muted-foreground mb-3 uppercase tracking-wide">Preview</p>
                   <BrandPreview businessName={businessName} color={brandColor} font={brandFont} footer={invoiceFooter} logoUrl={logoUrl} />
                 </div>
+              </div>
+            </CardContent>
+          </Card>
+          <div className="flex justify-end">
+            <Button type="submit" disabled={loading}>{loading ? "Saving…" : "Save Changes"}</Button>
+          </div>
+        </TabsContent>
+
+        {/* ── Preferences ── */}
+        <TabsContent value="preferences" className="space-y-6 mt-0">
+          <Card>
+            <CardHeader>
+              <CardTitle>Invoice Preferences</CardTitle>
+              <CardDescription>Set your default currency for new invoices</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-3">
+                <Label>Default Currency</Label>
+                <div className="grid grid-cols-3 gap-3">
+                  {CURRENCIES.map((opt) => (
+                    <button
+                      key={opt.code}
+                      type="button"
+                      onClick={() => setDefaultCurrency(opt.code)}
+                      className={cn(
+                        "flex flex-col items-center gap-1.5 rounded-md border py-4 px-4 text-sm font-medium transition-colors",
+                        defaultCurrency === opt.code
+                          ? "border-primary bg-primary/5 text-primary"
+                          : "border-input text-muted-foreground hover:bg-muted/50"
+                      )}
+                    >
+                      <span className="text-2xl font-bold">{opt.symbol}</span>
+                      <span className="text-xs">{opt.label}</span>
+                    </button>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  This currency will be pre-selected when you create a new invoice. You can still change it per invoice.
+                </p>
               </div>
             </CardContent>
           </Card>

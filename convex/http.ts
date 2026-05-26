@@ -24,4 +24,21 @@ http.route({
   }),
 });
 
+http.route({
+  path: "/clearPlatformFee",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const body = await request.text();
+    const signature = request.headers.get("x-paystack-signature") ?? "";
+    const result = await ctx.runAction(internal.billing.processPlatformFeeWebhook, {
+      body,
+      signature,
+    });
+    return new Response(JSON.stringify(result), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  }),
+});
+
 export default http;

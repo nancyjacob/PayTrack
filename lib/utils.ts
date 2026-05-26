@@ -14,6 +14,23 @@ export function formatNaira(kobo: number): string {
   }).format(kobo / 100);
 }
 
+export type Currency = "NGN" | "USD" | "GBP";
+
+const CURRENCY_LOCALE: Record<Currency, string> = {
+  NGN: "en-NG",
+  USD: "en-US",
+  GBP: "en-GB",
+};
+
+export function formatCurrency(kobo: number, currency: string = "NGN"): string {
+  const locale = CURRENCY_LOCALE[currency as Currency] ?? "en-NG";
+  return new Intl.NumberFormat(locale, {
+    style: "currency",
+    currency,
+    minimumFractionDigits: 2,
+  }).format(kobo / 100);
+}
+
 export function formatDate(timestamp: number): string {
   return new Date(timestamp).toLocaleDateString("en-NG", {
     year: "numeric",

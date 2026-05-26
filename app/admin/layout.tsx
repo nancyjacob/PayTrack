@@ -91,9 +91,20 @@ function AdminSidebar() {
   );
 }
 
+function getAdminPageTitle(pathname: string): string {
+  if (pathname === "/admin") return "Overview";
+  if (pathname.startsWith("/admin/analytics")) return "Analytics";
+  if (pathname.startsWith("/admin/users")) return "Users";
+  if (pathname.startsWith("/admin/invoices")) return "Invoices";
+  if (pathname.startsWith("/admin/support")) return "Support";
+  if (pathname.startsWith("/admin/admins")) return "Admins";
+  return "Admin";
+}
+
 function AdminTopbar() {
   const profile = useQuery(api.users.getMyProfile);
   const adminRole = useQuery(api.admin.getMyAdminRole);
+  const pathname = usePathname();
 
   const initials = profile?.ownerName
     ? profile.ownerName
@@ -132,7 +143,10 @@ function AdminTopbar() {
   }
 
   return (
-    <header className="h-12 shrink-0 flex items-center justify-end gap-3 px-6 border-b border-border bg-background">
+    <header className="h-12 shrink-0 flex items-center justify-between gap-3 px-6 border-b border-border bg-background">
+      <h2 className="text-sm font-semibold font-heading">
+        {getAdminPageTitle(pathname)}
+      </h2>
       {profile && (
         <div className="flex items-center gap-2.5">
           <RoleBadge />

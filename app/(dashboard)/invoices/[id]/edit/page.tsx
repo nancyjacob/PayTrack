@@ -79,6 +79,7 @@ export default function EditInvoicePage() {
           })),
           taxRate: invoice.taxRate,
           notes: invoice.notes ?? "",
+          currency: (invoice.currency ?? "NGN") as "NGN" | "USD" | "GBP",
           status: invoice.status as "draft" | "sent" | "overdue" | "paid",
         }}
       />

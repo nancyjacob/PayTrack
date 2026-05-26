@@ -20,27 +20,26 @@ export async function POST(request: NextRequest) {
       reference: string;
       channel: string;
       amount: number;
-      metadata?: { invoiceId?: string };
+      metadata?: { invoiceId?: string; type?: string; userId?: string };
     };
   };
 
   if (event.event === "charge.success") {
-    const invoiceId = event.data.metadata?.invoiceId;
-    if (invoiceId) {
-      const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL!;
-      try {
-        await fetch(`${convexUrl}/markInvoicePaid`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "text/plain",
-            "x-paystack-signature": signature,
-          },
-          body,
-        });
-      } catch (err) {
-        console.error("Failed to notify Convex:", err);
-        // Return 200 so Paystack doesn't retry — the HMAC was already verified
+    const meta = event.data.metadata ?? {};
+    const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL!;
+    const headers = {
+      "Content-Type": "text/plain",
+      "x-paystack-signature": signature,
+    };
+    try {
+      if (meta.type === "platform_fee" && meta.userId) {
+        await fetch(`${convexUrl}/clearPlatformFee`, { method: "POST", headers, body });
+      } else if (meta.invoiceId) {
+        await fetch(`${convexUrl}/markInvoicePaid`, { method: "POST", headers, body });
       }
+    } catch (err) {
+      console.error("Failed to notify Convex:", err);
+      // Return 200 so Paystack doesn't retry — the HMAC was already verified
     }
   }
 

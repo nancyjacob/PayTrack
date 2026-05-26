@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { type Id } from "@/convex/_generated/dataModel";
@@ -36,7 +36,8 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { Separator } from "@/components/ui/separator";
-import { formatNaira, formatDate } from "@/lib/utils";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { formatCurrency, formatDate, type Currency } from "@/lib/utils";
 import { Plus, Trash2, CalendarIcon, ChevronDown, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -55,13 +56,20 @@ export type InvoiceBuilderInitialValues = {
   clientId: Id<"clients">;
   issueDate: number;
   dueDate: number;
-  items: { description: string; quantity: number; unitPrice: number }[]; // unitPrice in Naira
+  items: { description: string; quantity: number; unitPrice: number }[]; // unitPrice in display units
   taxRate: number;
   notes: string;
+  currency: Currency;
   status: "draft" | "sent" | "overdue" | "paid";
 };
 
 const DEFAULT_TAX_RATE = 7.5;
+
+const CURRENCIES: { code: Currency; label: string; symbol: string }[] = [
+  { code: "NGN", label: "₦ Naira", symbol: "₦" },
+  { code: "USD", label: "$ Dollar", symbol: "$" },
+  { code: "GBP", label: "£ Pound", symbol: "£" },
+];
 
 function newLineItem(): LineItem {
   return {
@@ -97,6 +105,7 @@ export function InvoiceBuilder(props: Props) {
   const sendInvoice = useMutation(api.invoices.sendInvoice);
   const createClient = useMutation(api.clients.createClient);
   const clients = useQuery(api.clients.listClients);
+  const profile = useQuery(api.users.getMyProfile);
 
   const [selectedClientId, setSelectedClientId] = useState<Id<"clients"> | null>(
     initial?.clientId ?? null
@@ -121,6 +130,14 @@ export function InvoiceBuilder(props: Props) {
   );
   const [taxRate, setTaxRate] = useState(initial?.taxRate ?? DEFAULT_TAX_RATE);
   const [notes, setNotes] = useState(initial?.notes ?? "");
+  const [currency, setCurrency] = useState<Currency>(initial?.currency ?? "NGN");
+  const currencyAppliedFromProfile = useRef(false);
+  useEffect(() => {
+    if (!isEdit && !currencyAppliedFromProfile.current && profile?.defaultCurrency) {
+      currencyAppliedFromProfile.current = true;
+      setCurrency(profile.defaultCurrency as Currency);
+    }
+  }, [isEdit, profile]);
   const [loading, setLoading] = useState<"draft" | "send" | null>(null);
 
   // New client form
@@ -200,6 +217,7 @@ export function InvoiceBuilder(props: Props) {
           items: mappedItems,
           taxRate,
           notes: notes || undefined,
+          currency,
         });
         toast.success("Invoice updated");
         router.push(`/invoices/${initial.invoiceId}`);
@@ -211,6 +229,7 @@ export function InvoiceBuilder(props: Props) {
           items: mappedItems,
           taxRate,
           notes: notes || undefined,
+          currency,
         });
 
         if (andSend) {
@@ -251,344 +270,339 @@ export function InvoiceBuilder(props: Props) {
     }
   }
 
+  const currencySymbol = CURRENCIES.find((c) => c.code === currency)?.symbol ?? "₦";
+
   return (
-    <div className="space-y-6 max-w-3xl">
-      {/* AI Generator — only show in create mode */}
+    <div className="space-y-4 max-w-3xl">
+      {/* AI Generator — create mode only */}
       {!isEdit && (
         <div className="flex items-center justify-between">
-          <p className="text-sm text-muted-foreground">Fill in the details below or use AI to generate from a description.</p>
+          <p className="text-sm text-muted-foreground">
+            Fill in the details below or use AI to generate from a description.
+          </p>
           <AIInvoiceDialog onApply={applyAIResult} />
         </div>
       )}
 
-      {/* Client selector */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Bill To</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <Popover open={clientOpen} onOpenChange={setClientOpen}>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                role="combobox"
-                className="w-full justify-between font-normal"
-              >
-                {selectedClient ? selectedClient.name : "Select a client…"}
-                <ChevronDown size={14} className="opacity-50" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-100 p-0">
-              <Command>
-                <CommandInput placeholder="Search clients…" />
-                <CommandList>
-                  <CommandEmpty>No clients found.</CommandEmpty>
-                  <CommandGroup>
-                    {clients?.map(
-                      (client: {
-                        _id: Id<"clients">;
-                        name: string;
-                        email: string;
-                      }) => (
-                        <CommandItem
-                          key={client._id}
-                          value={client.name}
-                          onSelect={() => {
-                            setSelectedClientId(client._id);
-                            setClientOpen(false);
-                          }}
-                        >
-                          <Check
-                            size={14}
-                            className={cn(
-                              "mr-2",
-                              selectedClientId === client._id
-                                ? "opacity-100"
-                                : "opacity-0"
-                            )}
-                          />
-                          <div>
-                            <p className="font-medium">{client.name}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {client.email}
-                            </p>
+      <Tabs defaultValue="details">
+        <TabsList className="w-full">
+          <TabsTrigger value="details" className="flex-1">Details</TabsTrigger>
+          <TabsTrigger value="items" className="flex-1">Line Items</TabsTrigger>
+          <TabsTrigger value="notes" className="flex-1">Notes</TabsTrigger>
+        </TabsList>
+
+        {/* ── Tab 1: Details ── */}
+        <TabsContent value="details" className="space-y-4 pt-2">
+          {/* Client */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Bill To</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <Popover open={clientOpen} onOpenChange={setClientOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    className="w-full justify-between font-normal"
+                  >
+                    {selectedClient ? selectedClient.name : "Select a client…"}
+                    <ChevronDown size={14} className="opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-100 p-0">
+                  <Command>
+                    <CommandInput placeholder="Search clients…" />
+                    <CommandList>
+                      <CommandEmpty>No clients found.</CommandEmpty>
+                      <CommandGroup>
+                        {clients?.map(
+                          (client: { _id: Id<"clients">; name: string; email: string }) => (
+                            <CommandItem
+                              key={client._id}
+                              value={client.name}
+                              onSelect={() => {
+                                setSelectedClientId(client._id);
+                                setClientOpen(false);
+                              }}
+                            >
+                              <Check
+                                size={14}
+                                className={cn(
+                                  "mr-2",
+                                  selectedClientId === client._id ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              <div>
+                                <p className="font-medium">{client.name}</p>
+                                <p className="text-xs text-muted-foreground">{client.email}</p>
+                              </div>
+                            </CommandItem>
+                          )
+                        )}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                  <div className="border-t p-2">
+                    <Dialog open={newClientOpen} onOpenChange={setNewClientOpen}>
+                      <DialogTrigger asChild>
+                        <Button variant="ghost" size="sm" className="w-full justify-start">
+                          <Plus size={14} className="mr-2" />
+                          Add new client
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Add New Client</DialogTitle>
+                        </DialogHeader>
+                        <form onSubmit={handleAddNewClient} className="space-y-4 pt-2">
+                          <div className="space-y-2">
+                            <Label>Name</Label>
+                            <Input
+                              value={newClientName}
+                              onChange={(e) => setNewClientName(e.target.value)}
+                              placeholder="Acme Ltd"
+                              required
+                            />
                           </div>
-                        </CommandItem>
-                      )
+                          <div className="space-y-2">
+                            <Label>Email</Label>
+                            <Input
+                              type="email"
+                              value={newClientEmail}
+                              onChange={(e) => setNewClientEmail(e.target.value)}
+                              placeholder="billing@acme.com"
+                              required
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Phone (optional)</Label>
+                            <Input
+                              value={newClientPhone}
+                              onChange={(e) => setNewClientPhone(e.target.value)}
+                              placeholder="08012345678"
+                            />
+                          </div>
+                          <Button type="submit" className="w-full">Add Client</Button>
+                        </form>
+                      </DialogContent>
+                    </Dialog>
+                  </div>
+                </PopoverContent>
+              </Popover>
+              {selectedClient && (
+                <p className="text-sm text-muted-foreground">{selectedClient.email}</p>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Dates */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Dates</CardTitle>
+            </CardHeader>
+            <CardContent className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Issue Date</Label>
+                <Popover open={issueDateOpen} onOpenChange={setIssueDateOpen}>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="w-full justify-start font-normal">
+                      <CalendarIcon size={14} className="mr-2 text-muted-foreground" />
+                      {formatDate(issueDate.getTime())}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0">
+                    <Calendar
+                      mode="single"
+                      selected={issueDate}
+                      onSelect={(d) => { if (d) { setIssueDate(d); setIssueDateOpen(false); } }}
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+              <div className="space-y-2">
+                <Label>Due Date</Label>
+                <Popover open={dueDateOpen} onOpenChange={setDueDateOpen}>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="w-full justify-start font-normal">
+                      <CalendarIcon size={14} className="mr-2 text-muted-foreground" />
+                      {formatDate(dueDate.getTime())}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0">
+                    <Calendar
+                      mode="single"
+                      selected={dueDate}
+                      onSelect={(d) => { if (d) { setDueDate(d); setDueDateOpen(false); } }}
+                      disabled={(d) => d < issueDate}
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Currency */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Currency</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-3 gap-2">
+                {CURRENCIES.map((opt) => (
+                  <button
+                    key={opt.code}
+                    type="button"
+                    onClick={() => setCurrency(opt.code)}
+                    className={cn(
+                      "flex flex-col items-center gap-1 rounded-md border py-3 px-4 text-sm font-medium transition-colors",
+                      currency === opt.code
+                        ? "border-primary bg-primary/5 text-primary"
+                        : "border-input text-muted-foreground hover:bg-muted/50"
                     )}
-                  </CommandGroup>
-                </CommandList>
-              </Command>
-              <div className="border-t p-2">
-                <Dialog open={newClientOpen} onOpenChange={setNewClientOpen}>
-                  <DialogTrigger asChild>
+                  >
+                    <span className="text-lg font-bold">{opt.symbol}</span>
+                    <span className="text-xs">{opt.label.split(" ").slice(1).join(" ")}</span>
+                  </button>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ── Tab 2: Line Items ── */}
+        <TabsContent value="items" className="pt-2">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center justify-between">
+                Line Items
+                <span className="text-xs font-normal text-muted-foreground">
+                  Currency: {currencySymbol} {currency}
+                </span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="grid grid-cols-12 gap-2 text-xs font-medium text-muted-foreground px-1">
+                <span className="col-span-6">Description</span>
+                <span className="col-span-2 text-center">Qty</span>
+                <span className="col-span-2 text-right">Unit Price ({currencySymbol})</span>
+                <span className="col-span-1 text-right">Total</span>
+                <span className="col-span-1" />
+              </div>
+
+              {items.map((item) => (
+                <div key={item.id} className="grid grid-cols-12 gap-2 items-center">
+                  <div className="col-span-6">
+                    <Input
+                      placeholder="Service description"
+                      value={item.description}
+                      onChange={(e) => updateItem(item.id, "description", e.target.value)}
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <Input
+                      type="number"
+                      min={1}
+                      step={1}
+                      value={item.quantity}
+                      onChange={(e) =>
+                        updateItem(item.id, "quantity", Math.max(1, Number(e.target.value)))
+                      }
+                      className="text-center"
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <Input
+                      type="number"
+                      min={0}
+                      step={0.01}
+                      value={item.unitPrice || ""}
+                      onChange={(e) => updateItem(item.id, "unitPrice", Number(e.target.value))}
+                      className="text-right"
+                      placeholder="0.00"
+                    />
+                  </div>
+                  <div className="col-span-1 text-right text-sm font-medium">
+                    {formatCurrency(item.quantity * item.unitPrice * 100, currency)}
+                  </div>
+                  <div className="col-span-1 flex justify-end">
                     <Button
                       variant="ghost"
-                      size="sm"
-                      className="w-full justify-start"
+                      size="icon"
+                      className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                      onClick={() => removeItem(item.id)}
+                      disabled={items.length === 1}
                     >
-                      <Plus size={14} className="mr-2" />
-                      Add new client
+                      <Trash2 size={14} />
                     </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Add New Client</DialogTitle>
-                    </DialogHeader>
-                    <form
-                      onSubmit={handleAddNewClient}
-                      className="space-y-4 pt-2"
-                    >
-                      <div className="space-y-2">
-                        <Label>Name</Label>
-                        <Input
-                          value={newClientName}
-                          onChange={(e) => setNewClientName(e.target.value)}
-                          placeholder="Acme Ltd"
-                          required
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Email</Label>
-                        <Input
-                          type="email"
-                          value={newClientEmail}
-                          onChange={(e) => setNewClientEmail(e.target.value)}
-                          placeholder="billing@acme.com"
-                          required
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Phone (optional)</Label>
-                        <Input
-                          value={newClientPhone}
-                          onChange={(e) => setNewClientPhone(e.target.value)}
-                          placeholder="08012345678"
-                        />
-                      </div>
-                      <Button type="submit" className="w-full">
-                        Add Client
-                      </Button>
-                    </form>
-                  </DialogContent>
-                </Dialog>
+                  </div>
+                </div>
+              ))}
+
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-2"
+                onClick={() => setItems((prev) => [...prev, newLineItem()])}
+              >
+                <Plus size={14} className="mr-1.5" />
+                Add Line Item
+              </Button>
+
+              <Separator className="my-4" />
+
+              <div className="space-y-2 ml-auto w-64">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Subtotal</span>
+                  <span>{formatCurrency(subtotalNaira * 100, currency)}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <div className="flex items-center gap-2">
+                    <span className="text-muted-foreground">Tax</span>
+                    <Input
+                      type="number"
+                      min={0}
+                      max={100}
+                      step={0.5}
+                      value={taxRate}
+                      onChange={(e) => setTaxRate(Number(e.target.value))}
+                      className="h-7 w-16 text-center text-xs"
+                    />
+                    <span className="text-muted-foreground text-xs">%</span>
+                  </div>
+                  <span>{formatCurrency(taxNaira * 100, currency)}</span>
+                </div>
+                <Separator />
+                <div className="flex justify-between font-semibold">
+                  <span>Total</span>
+                  <span className="text-primary">{formatCurrency(totalNaira * 100, currency)}</span>
+                </div>
               </div>
-            </PopoverContent>
-          </Popover>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-          {selectedClient && (
-            <p className="text-sm text-muted-foreground">
-              {selectedClient.email}
-            </p>
-          )}
-        </CardContent>
-      </Card>
+        {/* ── Tab 3: Notes ── */}
+        <TabsContent value="notes" className="pt-2">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Notes / Payment Terms</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Textarea
+                placeholder="Payment due within 14 days. Thank you for your business."
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                rows={5}
+              />
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
-      {/* Dates */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Dates</CardTitle>
-        </CardHeader>
-        <CardContent className="grid grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label>Issue Date</Label>
-            <Popover open={issueDateOpen} onOpenChange={setIssueDateOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className="w-full justify-start font-normal"
-                >
-                  <CalendarIcon
-                    size={14}
-                    className="mr-2 text-muted-foreground"
-                  />
-                  {formatDate(issueDate.getTime())}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0">
-                <Calendar
-                  mode="single"
-                  selected={issueDate}
-                  onSelect={(d) => {
-                    if (d) {
-                      setIssueDate(d);
-                      setIssueDateOpen(false);
-                    }
-                  }}
-                />
-              </PopoverContent>
-            </Popover>
-          </div>
-          <div className="space-y-2">
-            <Label>Due Date</Label>
-            <Popover open={dueDateOpen} onOpenChange={setDueDateOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className="w-full justify-start font-normal"
-                >
-                  <CalendarIcon
-                    size={14}
-                    className="mr-2 text-muted-foreground"
-                  />
-                  {formatDate(dueDate.getTime())}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0">
-                <Calendar
-                  mode="single"
-                  selected={dueDate}
-                  onSelect={(d) => {
-                    if (d) {
-                      setDueDate(d);
-                      setDueDateOpen(false);
-                    }
-                  }}
-                  disabled={(d) => d < issueDate}
-                />
-              </PopoverContent>
-            </Popover>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Line items */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Line Items</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="grid grid-cols-12 gap-2 text-xs font-medium text-muted-foreground px-1">
-            <span className="col-span-6">Description</span>
-            <span className="col-span-2 text-center">Qty</span>
-            <span className="col-span-2 text-right">Unit Price (₦)</span>
-            <span className="col-span-1 text-right">Total</span>
-            <span className="col-span-1" />
-          </div>
-
-          {items.map((item) => (
-            <div key={item.id} className="grid grid-cols-12 gap-2 items-center">
-              <div className="col-span-6">
-                <Input
-                  placeholder="Service description"
-                  value={item.description}
-                  onChange={(e) =>
-                    updateItem(item.id, "description", e.target.value)
-                  }
-                />
-              </div>
-              <div className="col-span-2">
-                <Input
-                  type="number"
-                  min={1}
-                  step={1}
-                  value={item.quantity}
-                  onChange={(e) =>
-                    updateItem(
-                      item.id,
-                      "quantity",
-                      Math.max(1, Number(e.target.value))
-                    )
-                  }
-                  className="text-center"
-                />
-              </div>
-              <div className="col-span-2">
-                <Input
-                  type="number"
-                  min={0}
-                  step={0.01}
-                  value={item.unitPrice || ""}
-                  onChange={(e) =>
-                    updateItem(item.id, "unitPrice", Number(e.target.value))
-                  }
-                  className="text-right"
-                  placeholder="0.00"
-                />
-              </div>
-              <div className="col-span-1 text-right text-sm font-medium">
-                {formatNaira(item.quantity * item.unitPrice * 100)}
-              </div>
-              <div className="col-span-1 flex justify-end">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                  onClick={() => removeItem(item.id)}
-                  disabled={items.length === 1}
-                >
-                  <Trash2 size={14} />
-                </Button>
-              </div>
-            </div>
-          ))}
-
-          <Button
-            variant="outline"
-            size="sm"
-            className="mt-2"
-            onClick={() => setItems((prev) => [...prev, newLineItem()])}
-          >
-            <Plus size={14} className="mr-1.5" />
-            Add Line Item
-          </Button>
-
-          <Separator className="my-4" />
-
-          <div className="space-y-2 ml-auto w-64">
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Subtotal</span>
-              <span>{formatNaira(subtotalNaira * 100)}</span>
-            </div>
-            <div className="flex items-center justify-between text-sm">
-              <div className="flex items-center gap-2">
-                <span className="text-muted-foreground">Tax</span>
-                <Input
-                  type="number"
-                  min={0}
-                  max={100}
-                  step={0.5}
-                  value={taxRate}
-                  onChange={(e) => setTaxRate(Number(e.target.value))}
-                  className="h-7 w-16 text-center text-xs"
-                />
-                <span className="text-muted-foreground text-xs">%</span>
-              </div>
-              <span>{formatNaira(taxNaira * 100)}</span>
-            </div>
-            <Separator />
-            <div className="flex justify-between font-semibold">
-              <span>Total</span>
-              <span className="text-primary">
-                {formatNaira(totalNaira * 100)}
-              </span>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Notes */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Notes / Payment Terms</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Textarea
-            placeholder="Payment due within 14 days. Thank you for your business."
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            rows={3}
-          />
-        </CardContent>
-      </Card>
-
-      {/* Actions */}
-      <div className="flex gap-3 justify-end">
-        <Button
-          variant="outline"
-          disabled={!!loading}
-          onClick={() => router.back()}
-        >
+      {/* Actions — always visible below tabs */}
+      <div className="flex gap-3 justify-end pt-2">
+        <Button variant="outline" disabled={!!loading} onClick={() => router.back()}>
           Cancel
         </Button>
         {isEdit ? (
