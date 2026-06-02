@@ -7,22 +7,6 @@ import { AlertTriangle, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
-declare global {
-  interface Window {
-    PaystackPop?: {
-      setup: (options: {
-        key: string;
-        email: string;
-        amount: number;
-        currency: string;
-        ref: string;
-        metadata: Record<string, string>;
-        callback: () => void;
-        onClose: () => void;
-      }) => { openIframe: () => void };
-    };
-  }
-}
 
 export function FeesBanner() {
   const billing = useQuery(api.billing.getMyBillingStatus);

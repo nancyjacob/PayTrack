@@ -12,22 +12,6 @@ import { InvoiceStatusBadge } from "@/components/invoice/InvoiceStatusBadge";
 import { CheckCircle, CreditCard } from "lucide-react";
 import { toast } from "sonner";
 
-declare global {
-  interface Window {
-    PaystackPop?: {
-      setup: (options: {
-        key: string;
-        email: string;
-        amount: number;
-        currency: string;
-        ref: string;
-        metadata: Record<string, string>;
-        callback: (response: { reference: string }) => void;
-        onClose: () => void;
-      }) => { openIframe: () => void };
-    };
-  }
-}
 
 export default function PayPage() {
   const { invoiceId } = useParams<{ invoiceId: string }>();
