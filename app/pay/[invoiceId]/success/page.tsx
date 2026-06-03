@@ -10,7 +10,6 @@ import { Button } from "@/components/ui/button";
 import {
   CheckCircle,
   FileText,
-  LayoutDashboard,
   Building2,
   User,
   Calendar,
@@ -200,21 +199,13 @@ export default function PaymentSuccessPage() {
               )}
             </div>
 
-            {/* CTAs */}
-            <div className="grid grid-cols-2 gap-3 pt-1">
-              <Button variant="outline" className="w-full gap-2" asChild>
-                <Link href={`/pay/${invoiceId}`}>
-                  <FileText size={15} />
-                  View Receipt
-                </Link>
-              </Button>
-              <Button className="w-full gap-2" asChild>
-                <Link href="/dashboard">
-                  <LayoutDashboard size={15} />
-                  Dashboard
-                </Link>
-              </Button>
-            </div>
+            {/* CTA */}
+            <Button variant="outline" className="w-full gap-2" asChild>
+              <Link href={`/pay/${invoiceId}`}>
+                <FileText size={15} />
+                View Receipt
+              </Link>
+            </Button>
           </div>
         </div>
 
