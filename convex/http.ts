@@ -7,30 +7,16 @@ const http = httpRouter();
 
 auth.addHttpRoutes(http);
 
+// Single Paystack webhook endpoint — handles both invoice payments and platform fees.
+// Register this one URL in your Paystack dashboard:
+//   https://fleet-panda-254.convex.cloud/paystack
 http.route({
-  path: "/markInvoicePaid",
+  path: "/paystack",
   method: "POST",
   handler: httpAction(async (ctx, request) => {
     const body = await request.text();
     const signature = request.headers.get("x-paystack-signature") ?? "";
-    const result = await ctx.runAction(internal.invoices.processPaystackWebhook, {
-      body,
-      signature,
-    });
-    return new Response(JSON.stringify(result), {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-    });
-  }),
-});
-
-http.route({
-  path: "/clearPlatformFee",
-  method: "POST",
-  handler: httpAction(async (ctx, request) => {
-    const body = await request.text();
-    const signature = request.headers.get("x-paystack-signature") ?? "";
-    const result = await ctx.runAction(internal.billing.processPlatformFeeWebhook, {
+    const result = await ctx.runAction(internal.webhooks.processPaystackWebhook, {
       body,
       signature,
     });

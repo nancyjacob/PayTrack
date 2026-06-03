@@ -24,6 +24,7 @@ import type * as permissions from "../permissions.js";
 import type * as settings from "../settings.js";
 import type * as support from "../support.js";
 import type * as users from "../users.js";
+import type * as webhooks from "../webhooks.js";
 
 import type {
   ApiFromModules,
@@ -48,6 +49,7 @@ declare const fullApi: ApiFromModules<{
   settings: typeof settings;
   support: typeof support;
   users: typeof users;
+  webhooks: typeof webhooks;
 }>;
 
 /**
