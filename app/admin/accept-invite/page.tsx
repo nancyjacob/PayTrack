@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useState, useEffect, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useQuery, useMutation } from "convex/react";
 import { useConvexAuth } from "convex/react";
@@ -46,12 +46,36 @@ function AcceptInviteContent() {
   const invitation = useQuery(api.admin.getInvitationByToken, token ? { token } : "skip");
   const acceptInvitation = useMutation(api.admin.acceptAdminInvitation);
 
+  const { signOut } = useAuthActions();
+  const currentProfile = useQuery(
+    api.users.getMyProfile,
+    isAuthenticated ? {} : "skip"
+  );
+
   const [accepting, setAccepting] = useState(false);
   const [accepted, setAccepted] = useState(false);
   const [isNewAccount, setIsNewAccount] = useState(true);
-  const [name, setName] = useState("");
+  const [name, setName] = useState(invitation?.name ?? "");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const pendingAccept = useRef(false);
+
+  // After sign-in, wait for isAuthenticated to be true, then accept the invitation.
+  useEffect(() => {
+    if (!pendingAccept.current || !isAuthenticated || !token) return;
+    pendingAccept.current = false;
+    acceptInvitation({ token })
+      .then((result) => {
+        localStorage.setItem("adminSession", "1");
+        setAccepted(true);
+        toast.success(`Welcome! You now have ${roleInfo(result.role).label} access.`);
+        setTimeout(() => router.replace("/admin"), 2000);
+      })
+      .catch((err) => {
+        toast.error(err instanceof Error ? err.message : "Failed to accept invitation");
+        setAccepting(false);
+      });
+  }, [isAuthenticated]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleAccept() {
     setAccepting(true);
@@ -86,11 +110,9 @@ function AcceptInviteContent() {
           flow: "signIn",
         });
       }
-      const result = await acceptInvitation({ token });
-      localStorage.setItem("adminSession", "1");
-      setAccepted(true);
-      toast.success(`Welcome! You now have ${roleInfo(result.role).label} access.`);
-      setTimeout(() => router.replace("/admin"), 2000);
+      // Don't call acceptInvitation here — auth session may not be ready yet.
+      // The useEffect above will fire once isAuthenticated becomes true.
+      pendingAccept.current = true;
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Invalid credentials or invitation error");
       setAccepting(false);
@@ -210,16 +232,44 @@ function AcceptInviteContent() {
             </div>
 
             {isAuthenticated ? (
-              <Button className="w-full" onClick={handleAccept} disabled={accepting}>
-                {accepting ? (
-                  <>
-                    <Loader2 size={14} className="mr-2 animate-spin" />
-                    Accepting…
-                  </>
-                ) : (
-                  "Accept Invitation"
-                )}
-              </Button>
+              currentProfile === undefined ? (
+                <Button className="w-full" disabled>
+                  <Loader2 size={14} className="mr-2 animate-spin" />
+                  Loading…
+                </Button>
+              ) : currentProfile &&
+                currentProfile.email.toLowerCase() !== invitation.email.toLowerCase() ? (
+                <div className="space-y-3">
+                  <div className="rounded-md bg-destructive/10 border border-destructive/20 px-4 py-3 text-sm text-destructive">
+                    <p className="font-medium mb-1">Wrong account</p>
+                    <p className="text-xs text-destructive/80">
+                      You&apos;re signed in as <strong>{currentProfile.email}</strong>, but this
+                      invitation is for <strong>{invitation.email}</strong>. Sign out and sign in
+                      with the correct account.
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={async () => {
+                      await signOut();
+                    }}
+                  >
+                    Sign Out
+                  </Button>
+                </div>
+              ) : (
+                <Button className="w-full" onClick={handleAccept} disabled={accepting}>
+                  {accepting ? (
+                    <>
+                      <Loader2 size={14} className="mr-2 animate-spin" />
+                      Accepting…
+                    </>
+                  ) : (
+                    "Accept Invitation"
+                  )}
+                </Button>
+              )
             ) : (
               <form onSubmit={handleSignUpAndAccept} className="space-y-3">
                 <div className="space-y-1.5">

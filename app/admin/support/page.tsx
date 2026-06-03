@@ -14,6 +14,8 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { MessageSquare, CheckCircle2, Clock, AlertCircle, UserCheck } from "lucide-react";
+import { usePermissions } from "@/hooks/usePermissions";
+import { AccessDenied } from "@/components/admin/PermissionGate";
 
 type Ticket = {
   _id: Id<"supportTickets">;
@@ -47,10 +49,17 @@ function statusConfig(status: string) {
 }
 
 export default function AdminSupportPage() {
+  const { can, isLoading } = usePermissions();
   const tickets = useQuery(api.admin.listAllTickets) as Ticket[] | null | undefined;
   const admins = useQuery(api.admin.listAdmins) as Admin[] | null | undefined;
   const updateStatus = useMutation(api.admin.updateTicketStatus);
   const assignTicket = useMutation(api.admin.assignTicket);
+
+  if (isLoading) return null;
+  if (!can("support", "view")) return <AccessDenied />;
+
+  const canEdit = can("support", "edit");
+  const canDelete = can("support", "delete");
 
   async function handleStatusChange(
     ticketId: Id<"supportTickets">,
@@ -164,49 +173,55 @@ export default function AdminSupportPage() {
                     {ticket.message}
                   </p>
 
-                  {/* Assignment row */}
-                  <div className="flex items-center gap-2 pt-1 border-t border-border/50">
-                    <UserCheck size={13} className="text-muted-foreground shrink-0" />
-                    <span className="text-xs text-muted-foreground">Assign to:</span>
-                    <select
-                      className="h-7 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-2 focus:ring-ring"
-                      value={ticket.assignedTo ?? ""}
-                      onChange={(e) => handleAssign(ticket._id, e.target.value)}
-                    >
-                      <option value="">Unassigned</option>
-                      {admins?.map((admin) => (
-                        <option key={admin.userId} value={admin.userId}>
-                          {admin.ownerName}
-                        </option>
-                      ))}
-                    </select>
-                    {ticket.assigneeName && (
-                      <span className="text-xs text-muted-foreground">
-                        ({ticket.assigneeName})
-                      </span>
-                    )}
-                  </div>
+                  {/* Assignment — edit permission required */}
+                  {canEdit && (
+                    <div className="flex items-center gap-2 pt-1 border-t border-border/50">
+                      <UserCheck size={13} className="text-muted-foreground shrink-0" />
+                      <span className="text-xs text-muted-foreground">Assign to:</span>
+                      <select
+                        className="h-7 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-2 focus:ring-ring"
+                        value={ticket.assignedTo ?? ""}
+                        onChange={(e) => handleAssign(ticket._id, e.target.value)}
+                      >
+                        <option value="">Unassigned</option>
+                        {admins?.map((admin) => (
+                          <option key={admin.userId} value={admin.userId}>
+                            {admin.ownerName}
+                          </option>
+                        ))}
+                      </select>
+                      {ticket.assigneeName && (
+                        <span className="text-xs text-muted-foreground">
+                          ({ticket.assigneeName})
+                        </span>
+                      )}
+                    </div>
+                  )}
 
                   <div className="flex items-center gap-2">
-                    <p className="text-xs text-muted-foreground mr-1">Update status:</p>
-                    {(["open", "in_progress", "resolved"] as const).map((s) => (
-                      <Button
-                        key={s}
-                        variant={ticket.status === s ? "default" : "outline"}
-                        size="sm"
-                        className="h-7 text-xs"
-                        onClick={() =>
-                          ticket.status !== s && handleStatusChange(ticket._id, s)
-                        }
-                        disabled={ticket.status === s}
-                      >
-                        {s === "open"
-                          ? "Open"
-                          : s === "in_progress"
-                            ? "In Progress"
-                            : "Resolved"}
-                      </Button>
-                    ))}
+                    {canEdit && (
+                      <>
+                        <p className="text-xs text-muted-foreground mr-1">Update status:</p>
+                        {(["open", "in_progress", "resolved"] as const).map((s) => (
+                          <Button
+                            key={s}
+                            variant={ticket.status === s ? "default" : "outline"}
+                            size="sm"
+                            className="h-7 text-xs"
+                            onClick={() =>
+                              ticket.status !== s && handleStatusChange(ticket._id, s)
+                            }
+                            disabled={ticket.status === s}
+                          >
+                            {s === "open"
+                              ? "Open"
+                              : s === "in_progress"
+                                ? "In Progress"
+                                : "Resolved"}
+                          </Button>
+                        ))}
+                      </>
+                    )}
                     <Button
                       variant="ghost"
                       size="sm"

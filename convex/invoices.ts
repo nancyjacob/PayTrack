@@ -9,7 +9,7 @@ import { type Id } from "./_generated/dataModel";
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { internal, api } from "./_generated/api";
-import { sendEmail, fromEmail } from "./lib/email";
+import { fromEmail } from "./lib/email";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -398,13 +398,21 @@ export const sendInvoice = mutation({
       .query("userProfiles")
       .withIndex("by_userId", (q) => q.eq("userId", userId))
       .unique();
-    if ((profile?.platformFeeOwed ?? 0) >= 50000) {
+    // Read blocking threshold from settings (default ₦500 = 50000 kobo)
+    const thresholdSetting = await ctx.db
+      .query("systemSettings")
+      .withIndex("by_key", (q) => q.eq("key", "max_outstanding_fee_kobo"))
+      .unique();
+    const blockThreshold = thresholdSetting ? parseInt(thresholdSetting.value, 10) : 50000;
+    const feeOwed = profile?.platformFeeOwed ?? 0;
+    if (feeOwed >= blockThreshold) {
+      const naira = blockThreshold / 100;
       throw new Error(
-        "You have ₦500+ in outstanding platform fees. Please pay them before sending invoices."
+        `You have ₦${naira.toLocaleString("en-NG")}+ in outstanding platform fees. Please pay them before sending invoices.`
       );
     }
 
-    await ctx.db.patch(invoiceId, { status: "sent" });
+    await ctx.db.patch(invoiceId, { status: "sent", sentAt: Date.now() });
     await ctx.scheduler.runAfter(0, internal.invoices.sendInvoiceEmail, { invoiceId });
   },
 });
@@ -506,14 +514,25 @@ export const markAsPaid = internalMutation({
       paidAt: Date.now(),
     });
 
-    // Platform fee: first 5 payments free, then ₦100 (10000 kobo) per payment
+    // Platform fee — read free slots and fee per invoice from system settings
     const profile = await ctx.db
       .query("userProfiles")
       .withIndex("by_userId", (q) => q.eq("userId", invoice.userId))
       .unique();
     if (profile) {
+      const freeSlotsSetting = await ctx.db
+        .query("systemSettings")
+        .withIndex("by_key", (q) => q.eq("key", "free_invoice_slots"))
+        .unique();
+      const feeSetting = await ctx.db
+        .query("systemSettings")
+        .withIndex("by_key", (q) => q.eq("key", "platform_fee_kobo"))
+        .unique();
+      const freeSlots = freeSlotsSetting ? parseInt(freeSlotsSetting.value, 10) : 5;
+      const feeKobo   = feeSetting       ? parseInt(feeSetting.value, 10)        : 10000;
+
       const newCount = (profile.paidPaymentCount ?? 0) + 1;
-      const feeIncrement = newCount > 5 ? 10000 : 0;
+      const feeIncrement = newCount > freeSlots ? feeKobo : 0;
       await ctx.db.patch(profile._id, {
         paidPaymentCount: newCount,
         platformFeeOwed: (profile.platformFeeOwed ?? 0) + feeIncrement,
@@ -538,35 +557,161 @@ export const sendInvoiceEmail = internalAction({
     const invoice = await ctx.runQuery(api.invoices.getInvoiceById, { invoiceId });
     if (!invoice || !invoice.client) return;
 
-    const payLink = `${process.env.SITE_URL}/pay/${invoiceId}`;
-    const amount = new Intl.NumberFormat("en-NG", {
-      style: "currency",
-      currency: "NGN",
-    }).format(invoice.total / 100);
-    const dueDate = new Date(invoice.dueDate).toLocaleDateString("en-NG", {
-      day: "numeric",
-      month: "short",
-      year: "numeric",
-    });
+    const currency = invoice.currency ?? "NGN";
+    const locale = currency === "USD" ? "en-US" : currency === "GBP" ? "en-GB" : "en-NG";
 
-    await sendEmail({
+    function fmt(kobo: number) {
+      return new Intl.NumberFormat(locale, {
+        style: "currency",
+        currency,
+        minimumFractionDigits: 2,
+      }).format(kobo / 100);
+    }
+
+    function fmtDate(ts: number) {
+      return new Date(ts).toLocaleDateString("en-NG", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      });
+    }
+
+    const payLink   = `${process.env.SITE_URL}/pay/${invoiceId}`;
+    const bizName   = invoice.profile?.businessName ?? "PayTrack";
+    const total     = fmt(invoice.total);
+    const subtotal  = fmt(invoice.subtotal);
+    const tax       = fmt(invoice.tax);
+    const dueDate   = fmtDate(invoice.dueDate);
+    const issueDate = fmtDate(invoice.issueDate);
+
+    const itemRows = (invoice.items as Array<{
+      description: string;
+      quantity: number;
+      unitPrice: number;
+      total: number;
+    }>)
+      .map(
+        (item) => `
+        <tr>
+          <td style="padding:10px 12px;border-bottom:1px solid #f0f0f0;font-size:14px">${item.description}</td>
+          <td style="padding:10px 12px;border-bottom:1px solid #f0f0f0;font-size:14px;text-align:center">${item.quantity}</td>
+          <td style="padding:10px 12px;border-bottom:1px solid #f0f0f0;font-size:14px;text-align:right">${fmt(item.unitPrice)}</td>
+          <td style="padding:10px 12px;border-bottom:1px solid #f0f0f0;font-size:14px;text-align:right;font-weight:600">${fmt(item.total)}</td>
+        </tr>`
+      )
+      .join("");
+
+    const htmlBody = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" /></head>
+<body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif">
+  <div style="max-width:600px;margin:32px auto;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.08)">
+
+    <!-- Header -->
+    <div style="background:#6366f1;padding:28px 32px">
+      <p style="margin:0;font-size:13px;color:#c7d2fe;letter-spacing:.05em;text-transform:uppercase">Invoice from</p>
+      <h1 style="margin:4px 0 0;font-size:22px;color:#fff;font-weight:700">${bizName}</h1>
+    </div>
+
+    <!-- Invoice meta -->
+    <div style="padding:24px 32px 0;display:flex;justify-content:space-between">
+      <div>
+        <p style="margin:0 0 4px;font-size:11px;color:#9ca3af;text-transform:uppercase;letter-spacing:.05em">Invoice number</p>
+        <p style="margin:0;font-size:16px;font-weight:700;color:#111827;font-family:monospace">${invoice.invoiceNumber}</p>
+      </div>
+      <div style="text-align:right">
+        <p style="margin:0 0 4px;font-size:11px;color:#9ca3af;text-transform:uppercase;letter-spacing:.05em">Amount due</p>
+        <p style="margin:0;font-size:22px;font-weight:700;color:#6366f1">${total}</p>
+      </div>
+    </div>
+
+    <div style="padding:8px 32px 20px;display:flex;gap:32px;border-bottom:1px solid #f3f4f6">
+      <div>
+        <p style="margin:0 0 2px;font-size:11px;color:#9ca3af;text-transform:uppercase;letter-spacing:.05em">Issue date</p>
+        <p style="margin:0;font-size:13px;color:#374151">${issueDate}</p>
+      </div>
+      <div>
+        <p style="margin:0 0 2px;font-size:11px;color:#9ca3af;text-transform:uppercase;letter-spacing:.05em">Due date</p>
+        <p style="margin:0;font-size:13px;font-weight:600;color:#111827">${dueDate}</p>
+      </div>
+    </div>
+
+    <!-- Bill to -->
+    <div style="padding:20px 32px;border-bottom:1px solid #f3f4f6">
+      <p style="margin:0 0 6px;font-size:11px;color:#9ca3af;text-transform:uppercase;letter-spacing:.05em">Billed to</p>
+      <p style="margin:0;font-size:15px;font-weight:600;color:#111827">${invoice.client.name}</p>
+      <p style="margin:2px 0 0;font-size:13px;color:#6b7280">${invoice.client.email}</p>
+      ${invoice.client.address ? `<p style="margin:2px 0 0;font-size:13px;color:#6b7280">${invoice.client.address}</p>` : ""}
+    </div>
+
+    <!-- Line items -->
+    <div style="padding:20px 32px">
+      <table style="width:100%;border-collapse:collapse">
+        <thead>
+          <tr style="background:#f9fafb">
+            <th style="padding:8px 12px;font-size:11px;color:#9ca3af;text-transform:uppercase;letter-spacing:.05em;text-align:left">Description</th>
+            <th style="padding:8px 12px;font-size:11px;color:#9ca3af;text-transform:uppercase;letter-spacing:.05em;text-align:center">Qty</th>
+            <th style="padding:8px 12px;font-size:11px;color:#9ca3af;text-transform:uppercase;letter-spacing:.05em;text-align:right">Unit Price</th>
+            <th style="padding:8px 12px;font-size:11px;color:#9ca3af;text-transform:uppercase;letter-spacing:.05em;text-align:right">Total</th>
+          </tr>
+        </thead>
+        <tbody>${itemRows}</tbody>
+      </table>
+
+      <!-- Totals -->
+      <div style="margin-top:16px;padding-top:16px;border-top:1px solid #e5e7eb">
+        <div style="display:flex;justify-content:flex-end">
+          <div style="min-width:200px">
+            <div style="display:flex;justify-content:space-between;padding:4px 0;font-size:13px;color:#6b7280">
+              <span>Subtotal</span><span>${subtotal}</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding:4px 0;font-size:13px;color:#6b7280">
+              <span>Tax (${invoice.taxRate}%)</span><span>${tax}</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding:8px 0 0;font-size:16px;font-weight:700;color:#111827;border-top:2px solid #e5e7eb;margin-top:4px">
+              <span>Total</span><span style="color:#6366f1">${total}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    ${invoice.notes ? `
+    <!-- Notes -->
+    <div style="padding:0 32px 20px">
+      <p style="margin:0 0 6px;font-size:11px;color:#9ca3af;text-transform:uppercase;letter-spacing:.05em">Notes</p>
+      <p style="margin:0;font-size:13px;color:#6b7280;line-height:1.6">${invoice.notes}</p>
+    </div>` : ""}
+
+    <!-- CTA -->
+    <div style="padding:24px 32px;background:#f9fafb;text-align:center">
+      <a href="${payLink}"
+         style="display:inline-block;background:#6366f1;color:#fff;padding:13px 32px;border-radius:7px;text-decoration:none;font-weight:600;font-size:15px;letter-spacing:.01em">
+        Pay Now — ${total}
+      </a>
+      <p style="margin:14px 0 0;font-size:12px;color:#9ca3af">
+        Or open this link in your browser:<br />
+        <a href="${payLink}" style="color:#6366f1;text-decoration:none;word-break:break-all">${payLink}</a>
+      </p>
+    </div>
+
+    <!-- Footer -->
+    <div style="padding:16px 32px;text-align:center;border-top:1px solid #f3f4f6">
+      <p style="margin:0;font-size:11px;color:#d1d5db">
+        Sent via <strong style="color:#6366f1">PayTrack</strong> · This email was sent on behalf of ${bizName}
+      </p>
+    </div>
+  </div>
+</body>
+</html>`;
+
+    await ctx.runAction(internal.emailActions.send, {
       fromAddress: fromEmail(),
       toAddress: invoice.client.email,
       toName: invoice.client.name,
-      subject: `Invoice ${invoice.invoiceNumber} — ${amount} due ${dueDate}`,
-      htmlBody: `
-        <div style="font-family:sans-serif;max-width:560px;margin:0 auto">
-          <h2 style="color:#1a1a2e">Invoice from ${invoice.profile?.businessName ?? "PayTrack"}</h2>
-          <p>Dear ${invoice.client.name},</p>
-          <p>Please find your invoice <strong>${invoice.invoiceNumber}</strong> for <strong>${amount}</strong>, due on <strong>${dueDate}</strong>.</p>
-          <a href="${payLink}" style="display:inline-block;background:#6366f1;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:600;margin-top:16px">
-            Pay Now
-          </a>
-          <p style="margin-top:24px;color:#6b7280;font-size:13px">
-            Or copy this link: ${payLink}
-          </p>
-        </div>
-      `,
+      subject: `Invoice ${invoice.invoiceNumber} from ${bizName} — ${total} due ${dueDate}`,
+      htmlBody,
     });
   },
 });

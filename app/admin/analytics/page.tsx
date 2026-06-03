@@ -2,6 +2,8 @@
 
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import { usePermissions } from "@/hooks/usePermissions";
+import { AccessDenied } from "@/components/admin/PermissionGate";
 import {
   Card,
   CardContent,
@@ -137,8 +139,11 @@ function AnalyticsSkeleton() {
 
 // ── Page ─────────────────────────────────────────────────
 export default function AdminAnalyticsPage() {
+  const { can, isLoading } = usePermissions();
   const data = useQuery(api.admin.getAnalyticsData);
 
+  if (isLoading) return <AnalyticsSkeleton />;
+  if (!can("analytics", "view")) return <AccessDenied />;
   if (!data) return <AnalyticsSkeleton />;
 
   const invoiceTotal =

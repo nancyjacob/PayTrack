@@ -16,11 +16,18 @@ export const getMyBillingStatus = query({
       .unique();
     if (!profile) return null;
 
+    // Read free slots from system settings (falls back to 5 if not seeded yet)
+    const freeSlotsSetting = await ctx.db
+      .query("systemSettings")
+      .withIndex("by_key", (q) => q.eq("key", "free_invoice_slots"))
+      .unique();
+    const freeSlots = freeSlotsSetting ? parseInt(freeSlotsSetting.value, 10) : 5;
+
     const paidPaymentCount = profile.paidPaymentCount ?? 0;
     const platformFeeOwed = profile.platformFeeOwed ?? 0;
-    const freePaymentsLeft = Math.max(0, 5 - paidPaymentCount);
+    const freePaymentsLeft = Math.max(0, freeSlots - paidPaymentCount);
 
-    return { paidPaymentCount, platformFeeOwed, freePaymentsLeft };
+    return { paidPaymentCount, platformFeeOwed, freePaymentsLeft, freeSlots };
   },
 });
 

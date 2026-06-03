@@ -2,24 +2,13 @@
 
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { formatNaira } from "@/lib/utils";
 import { type Id } from "@/convex/_generated/dataModel";
+import { type ColumnDef } from "@tanstack/react-table";
+import { DataTable, SortableHeader } from "@/components/ui/data-table";
+import { Badge } from "@/components/ui/badge";
+import { formatNaira } from "@/lib/utils";
+import { usePermissions } from "@/hooks/usePermissions";
+import { AccessDenied } from "@/components/admin/PermissionGate";
 
 type AdminInvoice = {
   _id: Id<"invoices">;
@@ -31,69 +20,116 @@ type AdminInvoice = {
   createdAt: number;
 };
 
-const STATUS_VARIANT: Record<string, "default" | "secondary" | "outline" | "destructive"> = {
+const STATUS_VARIANT: Record<
+  string,
+  "default" | "secondary" | "outline" | "destructive"
+> = {
   paid: "default",
   sent: "secondary",
   draft: "outline",
   overdue: "destructive",
 };
 
+const columns: ColumnDef<AdminInvoice>[] = [
+  {
+    accessorKey: "invoiceNumber",
+    header: ({ column }) => (
+      <SortableHeader column={column}>Invoice #</SortableHeader>
+    ),
+    cell: ({ row }) => (
+      <span className="font-mono text-sm">{row.original.invoiceNumber}</span>
+    ),
+    size: 130,
+  },
+  {
+    accessorKey: "businessName",
+    header: ({ column }) => (
+      <SortableHeader column={column}>Business</SortableHeader>
+    ),
+    cell: ({ row }) => <span className="text-sm">{row.original.businessName}</span>,
+  },
+  {
+    accessorKey: "clientName",
+    header: ({ column }) => (
+      <SortableHeader column={column}>Client</SortableHeader>
+    ),
+    cell: ({ row }) => (
+      <span className="text-sm text-muted-foreground">{row.original.clientName}</span>
+    ),
+  },
+  {
+    accessorKey: "total",
+    header: ({ column }) => (
+      <SortableHeader column={column} className="ml-auto">
+        Total
+      </SortableHeader>
+    ),
+    cell: ({ row }) => (
+      <span className="font-medium text-right block">
+        {formatNaira(row.original.total)}
+      </span>
+    ),
+    size: 120,
+  },
+  {
+    accessorKey: "status",
+    header: ({ column }) => (
+      <SortableHeader column={column}>Status</SortableHeader>
+    ),
+    cell: ({ row }) => {
+      const s = row.original.status;
+      return (
+        <Badge variant={STATUS_VARIANT[s] ?? "outline"}>
+          {s.charAt(0).toUpperCase() + s.slice(1)}
+        </Badge>
+      );
+    },
+    size: 100,
+  },
+  {
+    accessorKey: "createdAt",
+    header: ({ column }) => (
+      <SortableHeader column={column}>Date</SortableHeader>
+    ),
+    cell: ({ row }) => (
+      <span className="text-sm text-muted-foreground">
+        {new Date(row.original.createdAt).toLocaleDateString("en-NG", {
+          day: "numeric",
+          month: "short",
+          year: "2-digit",
+        })}
+      </span>
+    ),
+    size: 110,
+  },
+];
+
 export default function AdminInvoicesPage() {
-  const invoices = useQuery(api.admin.listAllInvoices) as AdminInvoice[] | undefined;
+  const { can, isLoading } = usePermissions();
+  const invoices = useQuery(api.admin.listAllInvoices) as
+    | AdminInvoice[]
+    | undefined;
+
+  if (isLoading) return null;
+  if (!can("invoices", "view")) return <AccessDenied />;
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-heading font-semibold">Invoices</h1>
-        <p className="text-sm text-muted-foreground mt-0.5">All invoices across the platform</p>
+        <p className="text-sm text-muted-foreground mt-0.5">
+          All invoices across the platform
+        </p>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base flex items-center justify-between">
-            <span>All Invoices</span>
-            {invoices && <span className="text-sm font-normal text-muted-foreground">{invoices.length} total</span>}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          {!invoices ? (
-            <div className="p-6 space-y-3">
-              {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Invoice #</TableHead>
-                  <TableHead>Business</TableHead>
-                  <TableHead>Client</TableHead>
-                  <TableHead>Total</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Date</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {invoices.map((inv) => (
-                  <TableRow key={inv._id}>
-                    <TableCell className="font-mono text-sm">{inv.invoiceNumber}</TableCell>
-                    <TableCell className="text-sm">{inv.businessName}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{inv.clientName}</TableCell>
-                    <TableCell className="font-medium">{formatNaira(inv.total)}</TableCell>
-                    <TableCell>
-                      <Badge variant={STATUS_VARIANT[inv.status] ?? "outline"}>
-                        {inv.status.charAt(0).toUpperCase() + inv.status.slice(1)}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {new Date(inv.createdAt).toLocaleDateString("en-NG", { day: "numeric", month: "short", year: "2-digit" })}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+      <DataTable
+        columns={columns}
+        data={invoices ?? []}
+        loading={invoices === undefined}
+        searchPlaceholder="Search by invoice #, business, or client…"
+        emptyMessage="No invoices found."
+        defaultPageSize={20}
+      />
     </div>
   );
 }

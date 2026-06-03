@@ -1,98 +1,347 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { type Id } from "@/convex/_generated/dataModel";
-import { useState } from "react";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { type ColumnDef } from "@tanstack/react-table";
+import { DataTable, SortableHeader } from "@/components/ui/data-table";
+import { usePermissions } from "@/hooks/usePermissions";
+import { AccessDenied } from "@/components/admin/PermissionGate";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Crown, Shield, Headphones, UserMinus, UserCog, Mail, Send } from "lucide-react";
+import {
+  Crown,
+  Shield,
+  Headphones,
+  UserMinus,
+  UserCog,
+  UserPlus,
+  Clock,
+  CheckCircle2,
+} from "lucide-react";
+
+// ── Types ──────────────────────────────────────────────────────────────────
 
 type AdminRole = "super_admin" | "admin" | "support";
 
-function roleBadge(role: AdminRole | null, isLegacy: boolean) {
-  if (isLegacy && !role) return <Badge variant="default" className="gap-1"><Crown size={10} />Super Admin</Badge>;
-  if (role === "super_admin") return <Badge variant="default" className="gap-1"><Crown size={10} />Super Admin</Badge>;
-  if (role === "admin") return <Badge variant="secondary" className="gap-1"><Shield size={10} />Admin</Badge>;
-  if (role === "support") return <Badge variant="outline" className="gap-1"><Headphones size={10} />Support</Badge>;
-  return <Badge variant="outline">Unknown</Badge>;
-}
+type ActiveAdmin = {
+  kind: "active";
+  id: string;
+  name: string;
+  email: string;
+  phone: string | null;
+  role: AdminRole;
+  isAdmin: boolean;
+  profileId: Id<"userProfiles">;
+};
 
-function roleLabel(role: AdminRole): string {
-  if (role === "super_admin") return "Super Admin";
-  if (role === "admin") return "Admin";
-  return "Support Agent";
-}
+type PendingAdmin = {
+  kind: "pending";
+  id: string;
+  name: string | null;
+  email: string;
+  phone: string | null;
+  role: AdminRole;
+  invitationId: Id<"adminInvitations">;
+  expiresAt: number;
+  createdAt: number;
+};
 
-export default function AdminAdminsPage() {
-  const myRole = useQuery(api.admin.getMyAdminRole);
-  const admins = useQuery(api.admin.listAdmins);
-  const invitations = useQuery(
-    api.admin.listPendingInvitations,
-    myRole?.isSuperAdmin ? {} : "skip"
+type AdminEntry = ActiveAdmin | PendingAdmin;
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+
+const ROLE_META: Record<
+  AdminRole,
+  {
+    label: string;
+    icon: React.ElementType;
+    variant: "default" | "secondary" | "outline";
+  }
+> = {
+  super_admin: { label: "Super Admin", icon: Crown, variant: "default" },
+  admin: { label: "Admin", icon: Shield, variant: "secondary" },
+  support: { label: "Support", icon: Headphones, variant: "outline" },
+};
+
+const RESOURCES = [
+  { id: "overview", label: "Overview" },
+  { id: "analytics", label: "Analytics" },
+  { id: "users", label: "Users" },
+  { id: "invoices", label: "Invoices" },
+  { id: "support", label: "Support Tickets" },
+  { id: "roles", label: "Roles & Permissions" },
+  { id: "settings", label: "System Configuration" },
+];
+
+const PERM_ACTIONS = ["view", "create", "edit", "delete"] as const;
+
+function RoleBadge({
+  role,
+  isLegacy = false,
+}: {
+  role: AdminRole | null;
+  isLegacy?: boolean;
+}) {
+  const r = role ?? (isLegacy ? "super_admin" : null);
+  if (!r) return null;
+  const { label, icon: Icon, variant } = ROLE_META[r];
+  return (
+    <Badge variant={variant} className="gap-1 text-xs">
+      <Icon size={10} />
+      {label}
+    </Badge>
   );
+}
+
+// ── Section divider ────────────────────────────────────────────────────────
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-3 py-1">
+      <div className="h-px flex-1 bg-border" />
+      <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest whitespace-nowrap">
+        {children}
+      </span>
+      <div className="h-px flex-1 bg-border" />
+    </div>
+  );
+}
+
+// ── Create Admin Modal ─────────────────────────────────────────────────────
+
+function CreateAdminModal({
+  open,
+  onClose,
+}: {
+  open: boolean;
+  onClose: () => void;
+}) {
   const inviteAdmin = useAction(api.admin.inviteAdmin);
-  const revokeInvitation = useMutation(api.admin.revokeAdminInvitation);
+  const allPerms    = useQuery(api.permissions.getAllRolePermissions);
+
+  const [name,       setName]       = useState("");
+  const [email,      setEmail]      = useState("");
+  const [phone,      setPhone]      = useState("");
+  const [role,       setRole]       = useState<AdminRole>("admin");
+  const [submitting, setSubmitting] = useState(false);
+
+  function reset() {
+    setName(""); setEmail(""); setPhone(""); setRole("admin"); setSubmitting(false);
+  }
+  function handleClose() { reset(); onClose(); }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setSubmitting(true);
+    try {
+      await inviteAdmin({
+        email: email.trim().toLowerCase(),
+        name:  name.trim()  || undefined,
+        phone: phone.trim() || undefined,
+        role,
+      });
+      toast.success(`Invitation sent to ${email}`);
+      handleClose();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to create admin");
+      setSubmitting(false);
+    }
+  }
+
+  const meta     = ROLE_META[role];
+  const RoleIcon = meta.icon;
+  const rolePerms = allPerms?.[role] ?? {};
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && handleClose()}>
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <UserPlus size={18} />
+            Create New Admin
+          </DialogTitle>
+        </DialogHeader>
+
+        <form onSubmit={handleSubmit} className="space-y-5 py-2">
+
+          {/* ── Section 1: Admin Details ── */}
+          <SectionLabel>Admin Details</SectionLabel>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="a-name">Full Name</Label>
+              <Input
+                id="a-name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Jane Doe"
+              />
+              <p className="text-xs text-muted-foreground">Pre-fills profile on signup.</p>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="a-phone">Phone Number</Label>
+              <Input
+                id="a-phone"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="+234 801 234 5678"
+              />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="a-email">
+              Email Address <span className="text-destructive">*</span>
+            </Label>
+            <Input
+              id="a-email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="jane@example.com"
+              required
+            />
+            <p className="text-xs text-muted-foreground">
+              An invitation link will be sent to this address.
+            </p>
+          </div>
+
+          {/* ── Section 2: Role ── */}
+          <SectionLabel>Role</SectionLabel>
+          <div className="space-y-3">
+            <select
+              id="a-role"
+              value={role}
+              onChange={(e) => setRole(e.target.value as AdminRole)}
+              className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            >
+              <option value="admin">Admin</option>
+              <option value="support">Support Agent</option>
+              <option value="super_admin">Super Admin</option>
+            </select>
+            <div className="rounded-lg border bg-muted/30 px-4 py-3 flex items-start gap-3">
+              <div className="rounded-md bg-primary/10 p-1.5 shrink-0 mt-0.5">
+                <RoleIcon size={14} className="text-primary" />
+              </div>
+              <div>
+                <p className="text-sm font-medium mb-0.5">{meta.label}</p>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  {role === "super_admin"
+                    ? "Full unrestricted access to all modules and system settings. Cannot be limited."
+                    : role === "admin"
+                      ? "Configurable access across most modules. Cannot manage roles or system settings by default."
+                      : "Limited access focused on support ticket management and invoice viewing."}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* ── Section 3: Permissions Preview ── */}
+          <SectionLabel>Permissions Preview</SectionLabel>
+          {role === "super_admin" ? (
+            <div className="rounded-lg border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
+              <p className="font-medium text-foreground mb-1">Full Access — all modules unlocked</p>
+              <p className="text-xs leading-relaxed">
+                Super Admins have unrestricted view, create, edit, and delete
+                access across every section. These permissions cannot be
+                restricted.
+              </p>
+            </div>
+          ) : (
+            <div className="rounded-lg border overflow-hidden">
+              {/* Header row */}
+              <div className="grid grid-cols-[1fr_repeat(4,_40px)] bg-muted/40 border-b px-3 py-2 gap-x-1">
+                <span className="text-xs font-semibold text-muted-foreground">Module</span>
+                {PERM_ACTIONS.map((a) => (
+                  <span key={a} className="text-xs font-semibold text-muted-foreground text-center capitalize">
+                    {a}
+                  </span>
+                ))}
+              </div>
+              {/* Data rows */}
+              {RESOURCES.map(({ id, label }) => {
+                const perms = rolePerms[id] ?? [];
+                return (
+                  <div
+                    key={id}
+                    className="grid grid-cols-[1fr_repeat(4,_40px)] gap-x-1 px-3 py-2 border-b last:border-0 items-center"
+                  >
+                    <span className="text-sm">{label}</span>
+                    {PERM_ACTIONS.map((action) => (
+                      <div key={action} className="flex justify-center">
+                        {perms.includes(action) ? (
+                          <span className="text-primary font-bold text-sm">✓</span>
+                        ) : (
+                          <span className="text-muted-foreground/30 text-sm">—</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          <p className="text-xs text-muted-foreground -mt-1">
+            Fine-tune permissions for each role in{" "}
+            <a href="/admin/permissions" className="underline hover:text-foreground">
+              Admin → Permissions
+            </a>
+            .
+          </p>
+
+          <DialogFooter className="pt-3 border-t">
+            <Button type="button" variant="outline" onClick={handleClose}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={submitting} className="gap-2">
+              <UserPlus size={14} />
+              {submitting ? "Sending invitation…" : "Send Invitation"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ── Admin Management View ──────────────────────────────────────────────────
+
+function AdminManagementView() {
+  const entries = useQuery(api.admin.listAllAdminEntries);
+  const revokeInv = useMutation(api.admin.revokeAdminInvitation);
   const updateRole = useMutation(api.admin.updateAdminRole);
   const revokeAdmin = useMutation(api.admin.revokeAdmin);
+  const { isSuperAdmin, can } = usePermissions();
 
-  const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteRole, setInviteRole] = useState<AdminRole>("admin");
-  const [inviting, setInviting] = useState(false);
-  const [editingRole, setEditingRole] = useState<Id<"userProfiles"> | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState<Id<"userProfiles"> | null>(null);
   const [newRole, setNewRole] = useState<AdminRole>("admin");
 
-  const isSuperAdmin = myRole?.isSuperAdmin ?? false;
+  const canCreate = isSuperAdmin || can("users", "create");
+  const canEdit = isSuperAdmin || can("users", "edit");
+  const canDelete = isSuperAdmin || can("users", "delete");
 
-  async function handleInvite(e: React.FormEvent) {
-    e.preventDefault();
-    setInviting(true);
-    try {
-      await inviteAdmin({ email: inviteEmail.trim().toLowerCase(), role: inviteRole });
-      toast.success(`Invitation sent to ${inviteEmail}`);
-      setInviteEmail("");
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to send invitation");
-    } finally {
-      setInviting(false);
-    }
-  }
-
-  async function handleRevokeInvite(id: Id<"adminInvitations">) {
-    try {
-      await revokeInvitation({ invitationId: id });
-      toast.success("Invitation revoked");
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to revoke");
-    }
-  }
+  const activeAdmins: AdminEntry[] = (entries?.admins ?? []) as ActiveAdmin[];
+  const pendingAdmins: AdminEntry[] = (entries?.invitations ?? []) as PendingAdmin[];
+  const allEntries: AdminEntry[] = [...activeAdmins, ...pendingAdmins];
 
   async function handleUpdateRole(profileId: Id<"userProfiles">) {
     try {
       await updateRole({ profileId, role: newRole });
       toast.success("Role updated");
-      setEditingRole(null);
+      setEditingId(null);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to update role");
+      toast.error(err instanceof Error ? err.message : "Failed");
     }
   }
 
@@ -102,245 +351,235 @@ export default function AdminAdminsPage() {
       await revokeAdmin({ profileId });
       toast.success("Admin access revoked");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to revoke");
+      toast.error(err instanceof Error ? err.message : "Failed");
     }
   }
 
-  return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-heading font-semibold">Admin Management</h1>
-        <p className="text-sm text-muted-foreground mt-0.5">
-          Manage admin users and role assignments
-        </p>
-      </div>
+  async function handleRevokeInvite(id: Id<"adminInvitations">) {
+    if (!confirm("Cancel this pending invitation?")) return;
+    try {
+      await revokeInv({ invitationId: id });
+      toast.success("Invitation cancelled");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed");
+    }
+  }
 
-      {/* Invite Admin — Super Admin only */}
-      {isSuperAdmin && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <Send size={16} />
-              Invite New Admin
-            </CardTitle>
-            <CardDescription>
-              Send an invitation email with a secure link. The recipient must have
-              a PayTrack account with the same email address.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleInvite} className="flex flex-wrap items-end gap-3">
-              <div className="space-y-1.5 flex-1 min-w-48">
-                <Label htmlFor="inviteEmail">Email Address</Label>
-                <Input
-                  id="inviteEmail"
-                  type="email"
-                  value={inviteEmail}
-                  onChange={(e) => setInviteEmail(e.target.value)}
-                  placeholder="colleague@example.com"
-                  required
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="inviteRole">Role</Label>
+  const columns = useMemo<ColumnDef<AdminEntry>[]>(
+    () => [
+      {
+        id: "name",
+        accessorFn: (row) => row.name ?? row.email,
+        header: ({ column }) => (
+          <SortableHeader column={column}>Name</SortableHeader>
+        ),
+        cell: ({ row }) => (
+          <span className="font-medium">
+            {row.original.name ?? (
+              <span className="text-muted-foreground italic text-sm">
+                Not set
+              </span>
+            )}
+          </span>
+        ),
+      },
+      {
+        accessorKey: "email",
+        header: ({ column }) => (
+          <SortableHeader column={column}>Email</SortableHeader>
+        ),
+        cell: ({ row }) => (
+          <span className="text-sm text-muted-foreground">
+            {row.original.email}
+          </span>
+        ),
+      },
+      {
+        id: "phone",
+        accessorFn: (row) => row.phone ?? "",
+        header: () => (
+          <span className="text-xs font-medium text-muted-foreground">
+            Phone
+          </span>
+        ),
+        cell: ({ row }) => (
+          <span className="text-sm text-muted-foreground">
+            {row.original.phone ?? "—"}
+          </span>
+        ),
+        enableSorting: false,
+      },
+      {
+        accessorKey: "role",
+        header: ({ column }) => (
+          <SortableHeader column={column}>Role</SortableHeader>
+        ),
+        cell: ({ row }) => {
+          const entry = row.original;
+          if (entry.kind === "active" && editingId === entry.profileId) {
+            return (
+              <div className="flex items-center gap-2">
                 <select
-                  id="inviteRole"
-                  value={inviteRole}
-                  onChange={(e) => setInviteRole(e.target.value as AdminRole)}
-                  className="h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  value={newRole}
+                  onChange={(e) => setNewRole(e.target.value as AdminRole)}
+                  className="h-7 rounded-md border border-input bg-background px-2 text-xs"
                 >
                   <option value="admin">Admin</option>
                   <option value="support">Support Agent</option>
                   <option value="super_admin">Super Admin</option>
                 </select>
+                <Button
+                  size="sm"
+                  className="h-7 text-xs"
+                  onClick={() => handleUpdateRole(entry.profileId)}
+                >
+                  Save
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-xs"
+                  onClick={() => setEditingId(null)}
+                >
+                  Cancel
+                </Button>
               </div>
-              <Button type="submit" disabled={inviting} className="gap-2">
-                <Mail size={14} />
-                {inviting ? "Sending…" : "Send Invitation"}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Current Admins */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base flex items-center justify-between">
-            <span>Current Admins</span>
-            {admins && (
-              <span className="text-sm font-normal text-muted-foreground">
-                {admins.length} total
-              </span>
-            )}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          {!admins ? (
-            <div className="p-6 space-y-3">
-              {Array.from({ length: 3 }).map((_, i) => (
-                <Skeleton key={i} className="h-10 w-full" />
-              ))}
-            </div>
-          ) : admins.length === 0 ? (
-            <div className="p-8 text-center text-muted-foreground text-sm">
-              No admins found.
-            </div>
+            );
+          }
+          return (
+            <RoleBadge
+              role={entry.role}
+              isLegacy={
+                entry.kind === "active" && entry.isAdmin && !entry.role
+              }
+            />
+          );
+        },
+      },
+      {
+        id: "status",
+        accessorFn: (row) => row.kind,
+        header: ({ column }) => (
+          <SortableHeader column={column}>Status</SortableHeader>
+        ),
+        cell: ({ row }) =>
+          row.original.kind === "pending" ? (
+            <Badge variant="secondary" className="gap-1 text-xs">
+              <Clock size={10} />
+              Pending
+            </Badge>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Role</TableHead>
-                  {isSuperAdmin && <TableHead />}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {admins.map((admin) => (
-                  <TableRow key={admin._id}>
-                    <TableCell className="font-medium">{admin.ownerName}</TableCell>
-                    <TableCell className="text-muted-foreground text-sm">
-                      {admin.email}
-                    </TableCell>
-                    <TableCell>
-                      {editingRole === admin._id ? (
-                        <div className="flex items-center gap-2">
-                          <select
-                            value={newRole}
-                            onChange={(e) => setNewRole(e.target.value as AdminRole)}
-                            className="h-7 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-2 focus:ring-ring"
-                          >
-                            <option value="admin">Admin</option>
-                            <option value="support">Support Agent</option>
-                            <option value="super_admin">Super Admin</option>
-                          </select>
-                          <Button
-                            size="sm"
-                            className="h-7 text-xs"
-                            onClick={() => handleUpdateRole(admin._id)}
-                          >
-                            Save
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 text-xs"
-                            onClick={() => setEditingRole(null)}
-                          >
-                            Cancel
-                          </Button>
-                        </div>
-                      ) : (
-                        roleBadge(admin.adminRole as AdminRole | null, admin.isAdmin)
-                      )}
-                    </TableCell>
-                    {isSuperAdmin && (
-                      <TableCell>
-                        <div className="flex items-center gap-1 justify-end">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 text-xs gap-1"
-                            onClick={() => {
-                              setEditingRole(admin._id);
-                              setNewRole(
-                                (admin.adminRole as AdminRole | null) ?? "admin"
-                              );
-                            }}
-                          >
-                            <UserCog size={12} />
-                            Change Role
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 text-xs gap-1 text-destructive hover:text-destructive"
-                            onClick={() => handleRevoke(admin._id, admin.ownerName)}
-                          >
-                            <UserMinus size={12} />
-                            Revoke
-                          </Button>
-                        </div>
-                      </TableCell>
-                    )}
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Pending Invitations — Super Admin only */}
-      {isSuperAdmin && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Pending Invitations</CardTitle>
-            <CardDescription>
-              Invitations expire after 7 days if not accepted.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="p-0">
-            {!invitations ? (
-              <div className="p-6 space-y-2">
-                <Skeleton className="h-10 w-full" />
-                <Skeleton className="h-10 w-full" />
-              </div>
-            ) : invitations.length === 0 ? (
-              <div className="p-6 text-center text-muted-foreground text-sm">
-                No pending invitations
-              </div>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Role</TableHead>
-                    <TableHead>Sent</TableHead>
-                    <TableHead>Expires</TableHead>
-                    <TableHead />
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {invitations.map((inv) => (
-                    <TableRow key={inv._id}>
-                      <TableCell className="font-medium">{inv.email}</TableCell>
-                      <TableCell>
-                        {roleBadge(inv.role as AdminRole, false)}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground text-sm">
-                        {new Date(inv.createdAt).toLocaleDateString("en-NG", {
-                          day: "numeric",
-                          month: "short",
-                        })}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground text-sm">
-                        {new Date(inv.expiresAt).toLocaleDateString("en-NG", {
-                          day: "numeric",
-                          month: "short",
-                        })}
-                      </TableCell>
-                      <TableCell>
+            <Badge
+              variant="outline"
+              className="gap-1 text-xs text-green-600 border-green-200 bg-green-50"
+            >
+              <CheckCircle2 size={10} />
+              Active
+            </Badge>
+          ),
+        size: 100,
+      },
+      ...(canEdit || canDelete
+        ? [
+            {
+              id: "actions",
+              header: () => null,
+              cell: ({ row }: { row: { original: AdminEntry } }) => {
+                const entry = row.original;
+                if (entry.kind === "active") {
+                  return (
+                    <div className="flex items-center gap-1 justify-end">
+                      {canEdit && (
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="h-7 text-xs text-destructive hover:text-destructive"
-                          onClick={() =>
-                            handleRevokeInvite(inv._id as Id<"adminInvitations">)
-                          }
+                          className="h-7 text-xs gap-1"
+                          onClick={() => {
+                            setEditingId(entry.profileId);
+                            setNewRole(entry.role ?? "admin");
+                          }}
                         >
+                          <UserCog size={12} />
+                          Role
+                        </Button>
+                      )}
+                      {canDelete && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 text-xs gap-1 text-destructive hover:text-destructive"
+                          onClick={() => handleRevoke(entry.profileId, entry.name)}
+                        >
+                          <UserMinus size={12} />
                           Revoke
                         </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
-      )}
+                      )}
+                    </div>
+                  );
+                }
+                return canDelete ? (
+                  <div className="flex justify-end">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-xs text-destructive hover:text-destructive"
+                      onClick={() => handleRevokeInvite(entry.invitationId)}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                ) : null;
+              },
+              size: 160,
+              enableSorting: false,
+              enableGlobalFilter: false,
+            } as ColumnDef<AdminEntry>,
+          ]
+        : []),
+    ],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [canEdit, canDelete, editingId, newRole]
+  );
+
+  return (
+    <div className="space-y-6">
+      <CreateAdminModal open={modalOpen} onClose={() => setModalOpen(false)} />
+
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-heading font-semibold">Admins</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            Manage administrator accounts and role assignments.
+          </p>
+        </div>
+        {canCreate && (
+          <Button
+            onClick={() => setModalOpen(true)}
+            className="gap-2 shrink-0"
+          >
+            <UserPlus size={15} />
+            Create New Admin
+          </Button>
+        )}
+      </div>
+
+      <DataTable
+        columns={columns}
+        data={allEntries}
+        loading={entries === undefined}
+        searchPlaceholder="Search by name, email, or role…"
+        emptyMessage="No admins found."
+        defaultPageSize={20}
+      />
     </div>
   );
+}
+
+// ── Page entry point ───────────────────────────────────────────────────────
+
+export default function AdminAdminsPage() {
+  const { isSuperAdmin, isLoading } = usePermissions();
+  if (isLoading) return null;
+  if (!isSuperAdmin) return <AccessDenied />;
+  return <AdminManagementView />;
 }

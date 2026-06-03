@@ -3,7 +3,7 @@ import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import type { QueryCtx, MutationCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { sendEmail, fromEmail } from "./lib/email";
+import { fromEmail } from "./lib/email";
 
 const adminRoleValidator = v.union(
   v.literal("super_admin"),
@@ -201,6 +201,64 @@ export const toggleUserPlan = mutation({
   },
 });
 
+export const deleteUser = mutation({
+  args: { profileId: v.id("userProfiles") },
+  handler: async (ctx, { profileId }) => {
+    await requireAdmin(ctx);
+
+    const profile = await ctx.db.get(profileId);
+    if (!profile) throw new Error("User not found");
+    if (profile.isAdmin || profile.adminRole) {
+      throw new Error("Cannot delete admin accounts. Revoke admin access first.");
+    }
+
+    // Delete invoice items and payments for each invoice, then the invoices
+    const invoices = await ctx.db
+      .query("invoices")
+      .withIndex("by_userId", (q) => q.eq("userId", profile.userId))
+      .collect();
+
+    for (const invoice of invoices) {
+      const items = await ctx.db
+        .query("invoiceItems")
+        .withIndex("by_invoiceId", (q) => q.eq("invoiceId", invoice._id))
+        .collect();
+      for (const item of items) await ctx.db.delete(item._id);
+
+      const payments = await ctx.db
+        .query("payments")
+        .withIndex("by_invoiceId", (q) => q.eq("invoiceId", invoice._id))
+        .collect();
+      for (const payment of payments) await ctx.db.delete(payment._id);
+
+      await ctx.db.delete(invoice._id);
+    }
+
+    // Delete clients
+    const clients = await ctx.db
+      .query("clients")
+      .withIndex("by_userId", (q) => q.eq("userId", profile.userId))
+      .collect();
+    for (const client of clients) await ctx.db.delete(client._id);
+
+    // Nullify support tickets submitted by this user
+    const tickets = await ctx.db
+      .query("supportTickets")
+      .withIndex("by_userId", (q) => q.eq("userId", profile.userId))
+      .collect();
+    for (const ticket of tickets) {
+      await ctx.db.patch(ticket._id, { userId: undefined });
+    }
+
+    // Delete logo from storage if present
+    if (profile.logoStorageId) {
+      await ctx.storage.delete(profile.logoStorageId);
+    }
+
+    await ctx.db.delete(profileId);
+  },
+});
+
 export const setAdminByEmail = internalMutation({
   args: { email: v.string() },
   handler: async (ctx, { email }) => {
@@ -238,9 +296,11 @@ export const listAdmins = query({
 export const createInvitationRecord = internalMutation({
   args: {
     email: v.string(),
+    name: v.optional(v.string()),
+    phone: v.optional(v.string()),
     role: adminRoleValidator,
   },
-  handler: async (ctx, { email, role }) => {
+  handler: async (ctx, { email, name, phone, role }) => {
     const invitedBy = await requireSuperAdmin(ctx);
 
     const existingProfile = await ctx.db
@@ -265,6 +325,8 @@ export const createInvitationRecord = internalMutation({
     const token = crypto.randomUUID();
     const invitationId = await ctx.db.insert("adminInvitations", {
       email,
+      name: name || undefined,
+      phone: phone || undefined,
       role,
       invitedBy,
       token,
@@ -280,12 +342,14 @@ export const createInvitationRecord = internalMutation({
 export const inviteAdmin = action({
   args: {
     email: v.string(),
+    name: v.optional(v.string()),
+    phone: v.optional(v.string()),
     role: adminRoleValidator,
   },
-  handler: async (ctx, { email, role }) => {
+  handler: async (ctx, { email, name, phone, role }) => {
     const { token } = await ctx.runMutation(
       internal.admin.createInvitationRecord,
-      { email, role }
+      { email, name, phone, role }
     );
 
     const appUrl = process.env.APP_URL ?? "http://localhost:3000";
@@ -296,15 +360,17 @@ export const inviteAdmin = action({
         : role === "admin"
           ? "Admin"
           : "Support Agent";
+    const greeting = name ? `Hi ${name},` : "Hello,";
 
-    await sendEmail({
+    await ctx.runAction(internal.emailActions.send, {
       fromAddress: fromEmail(),
       toAddress: email,
-      toName: email,
+      toName: name ?? email,
       subject: `You've been invited as ${roleLabel} on PayTrack`,
       htmlBody: `
         <div style="font-family:sans-serif;max-width:480px;margin:0 auto">
           <h2 style="color:#111">Admin Invitation</h2>
+          <p>${greeting}</p>
           <p>You've been invited to join the PayTrack admin team as a <strong>${roleLabel}</strong>.</p>
           <p style="margin:24px 0">
             <a href="${inviteUrl}" style="display:inline-block;background:#6366f1;color:white;padding:10px 24px;border-radius:6px;text-decoration:none;font-weight:600">
@@ -320,6 +386,53 @@ export const inviteAdmin = action({
   },
 });
 
+
+/** Unified list: active admins + pending invitations in one response. */
+export const listAllAdminEntries = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return null;
+    const me = await ctx.db
+      .query("userProfiles")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .unique();
+    if (!me?.isAdmin && !me?.adminRole) return null;
+
+    const profiles = await ctx.db.query("userProfiles").collect();
+    const admins = profiles
+      .filter((p) => p.isAdmin || p.adminRole)
+      .map((p) => ({
+        kind: "active" as const,
+        id: p._id,
+        name: p.ownerName,
+        email: p.email,
+        phone: p.phone ?? null,
+        role: (p.adminRole ?? "super_admin") as "super_admin" | "admin" | "support",
+        isAdmin: p.isAdmin ?? false,
+        profileId: p._id,
+      }));
+
+    const pending = await ctx.db
+      .query("adminInvitations")
+      .withIndex("by_status", (q) => q.eq("status", "pending"))
+      .order("desc")
+      .take(50);
+    const invitations = pending.map((inv) => ({
+      kind: "pending" as const,
+      id: inv._id,
+      name: inv.name ?? null,
+      email: inv.email,
+      phone: inv.phone ?? null,
+      role: inv.role,
+      invitationId: inv._id,
+      expiresAt: inv.expiresAt,
+      createdAt: inv.createdAt,
+    }));
+
+    return { admins, invitations };
+  },
+});
 
 export const listPendingInvitations = query({
   args: {},
@@ -344,6 +457,8 @@ export const getInvitationByToken = query({
     if (!invitation) return null;
     return {
       email: invitation.email,
+      name: invitation.name ?? null,
+      phone: invitation.phone ?? null,
       role: invitation.role,
       status: invitation.status,
       isExpired:
@@ -385,7 +500,16 @@ export const acceptAdminInvitation = mutation({
       );
     }
 
-    await ctx.db.patch(profile._id, { adminRole: invitation.role });
+    // Apply role and pre-fill name/phone from invitation if not already set
+    const profilePatch: Record<string, unknown> = { adminRole: invitation.role };
+    if (invitation.name && (!profile.ownerName || profile.ownerName === profile.email.split("@")[0])) {
+      profilePatch.ownerName = invitation.name;
+      profilePatch.businessName = invitation.name;
+    }
+    if (invitation.phone && !profile.phone) {
+      profilePatch.phone = invitation.phone;
+    }
+    await ctx.db.patch(profile._id, profilePatch);
     await ctx.db.patch(invitation._id, { status: "accepted" });
 
     return { role: invitation.role };

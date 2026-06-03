@@ -1,26 +1,41 @@
 import { convexAuth } from "@convex-dev/auth/server";
 import { Password } from "@convex-dev/auth/providers/Password";
 import { Email } from "@convex-dev/auth/providers/Email";
-import { sendEmail, fromEmail } from "./lib/email";
+import { fromEmail } from "./lib/email";
 
 export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
   providers: [
     Password,
     Email({
       sendVerificationRequest: async ({ identifier: email, token }) => {
-        await sendEmail({
-          fromAddress: fromEmail(),
-          toAddress: email,
-          toName: email,
-          subject: "Your PayTrack sign-in code",
-          htmlBody: `<div style="font-family:sans-serif;max-width:480px;margin:0 auto"><h2>Sign in to PayTrack</h2><p>Your one-time code is:</p><p style="font-size:32px;font-weight:bold;letter-spacing:8px;color:#6366f1">${token}</p><p style="color:#6b7280;font-size:13px">This code expires in 15 minutes.</p></div>`,
+        const apiKey = process.env.MAILGUN_SMTP_PASSWORD;
+        const domain = process.env.MAILGUN_DOMAIN ?? "mg.osigla.com.ng";
+        if (!apiKey) throw new Error("[auth/email] MAILGUN_SMTP_PASSWORD is not set");
+        const form = new URLSearchParams();
+        form.set("from", `PayTrack <${fromEmail()}>`);
+        form.set("to", email);
+        form.set("subject", "Your PayTrack sign-in code");
+        form.set(
+          "html",
+          `<div style="font-family:sans-serif;max-width:480px;margin:0 auto"><h2>Sign in to PayTrack</h2><p>Your one-time code is:</p><p style="font-size:32px;font-weight:bold;letter-spacing:8px;color:#6366f1">${token}</p><p style="color:#6b7280;font-size:13px">This code expires in 15 minutes.</p></div>`
+        );
+        const res = await fetch(`https://api.mailgun.net/v3/${domain}/messages`, {
+          method: "POST",
+          headers: {
+            Authorization: `Basic ${btoa(`api:${apiKey}`)}`,
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+          body: form.toString(),
         });
+        if (!res.ok) {
+          const detail = await res.text().catch(() => "");
+          throw new Error(`[auth/email] Failed to send code [HTTP ${res.status}]: ${detail}`);
+        }
       },
     }),
   ],
   callbacks: {
     async afterUserCreatedOrUpdated(ctx, { userId, existingUserId, profile }) {
-      // Only create profile for brand-new users
       if (existingUserId !== null) return;
       const email = (profile.email as string | undefined) ?? "";
       const nameFallback = email.split("@")[0] ?? "User";

@@ -1,8 +1,8 @@
-import { mutation, query, internalAction } from "./_generated/server";
+import { mutation, query, internalAction, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { internal } from "./_generated/api";
-import { sendEmail, fromEmail } from "./lib/email";
+import { fromEmail } from "./lib/email";
 
 export const submitSupportTicket = mutation({
   args: {
@@ -38,10 +38,10 @@ export const sendSupportEmail = internalAction({
     subject: v.string(),
     message: v.string(),
   },
-  handler: async (_ctx, args) => {
+  handler: async (ctx, args) => {
     const adminEmail = process.env.SUPPORT_EMAIL ?? "support@paytrack.app";
 
-    await sendEmail({
+    await ctx.runAction(internal.emailActions.send, {
       fromAddress: fromEmail(),
       toAddress: adminEmail,
       toName: "PayTrack Support",
@@ -55,6 +55,48 @@ export const sendSupportEmail = internalAction({
         <hr>
         <p style="color:#888;font-size:12px">Ticket ID: ${args.ticketId}</p>
       `,
+    });
+  },
+});
+
+// ── Inbound email (Mailgun webhook) ──────────────────────────────────────────
+
+export const processInboundEmail = internalAction({
+  args: {
+    from: v.string(),
+    subject: v.string(),
+    body: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const emailMatch = args.from.match(/<([^>]+)>/) ?? args.from.match(/(\S+@\S+)/);
+    const email = emailMatch ? emailMatch[1] : args.from;
+    const nameMatch = args.from.match(/^(.+?)\s*</);
+    const name = nameMatch ? nameMatch[1].replace(/"/g, "").trim() : email;
+
+    await ctx.runMutation(internal.support.createTicketFromInboundEmail, {
+      email,
+      name,
+      subject: args.subject || "(no subject)",
+      message: args.body || "(no message)",
+    });
+  },
+});
+
+export const createTicketFromInboundEmail = internalMutation({
+  args: {
+    email: v.string(),
+    name: v.string(),
+    subject: v.string(),
+    message: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.insert("supportTickets", {
+      name: args.name,
+      email: args.email,
+      subject: args.subject,
+      message: args.message,
+      status: "open",
+      createdAt: Date.now(),
     });
   },
 });

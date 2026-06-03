@@ -67,6 +67,7 @@ export default defineSchema({
     taxRate: v.number(),
     paystackReference: v.optional(v.string()),
     paidAt: v.optional(v.number()),
+    sentAt: v.optional(v.number()),
     createdAt: v.number(),
   })
     .index("by_userId", ["userId"])
@@ -115,6 +116,8 @@ export default defineSchema({
 
   adminInvitations: defineTable({
     email: v.string(),
+    name: v.optional(v.string()),
+    phone: v.optional(v.string()),
     role: v.union(
       v.literal("super_admin"),
       v.literal("admin"),
@@ -133,4 +136,35 @@ export default defineSchema({
     .index("by_token", ["token"])
     .index("by_email", ["email"])
     .index("by_status", ["status"]),
+
+  systemSettings: defineTable({
+    key: v.string(),
+    value: v.string(),
+    label: v.string(),
+    description: v.optional(v.string()),
+    category: v.string(),
+    inputType: v.union(
+      v.literal("text"),
+      v.literal("number"),
+      v.literal("select"),
+      v.literal("toggle")
+    ),
+    options: v.optional(v.array(v.string())),
+    updatedAt: v.number(),
+    updatedBy: v.optional(v.id("users")),
+  })
+    .index("by_key", ["key"])
+    .index("by_category", ["category"]),
+
+  rolePermissions: defineTable({
+    role: v.union(
+      v.literal("super_admin"),
+      v.literal("admin"),
+      v.literal("support")
+    ),
+    resource: v.string(),
+    actions: v.array(v.string()),
+  })
+    .index("by_role", ["role"])
+    .index("by_role_resource", ["role", "resource"]),
 });

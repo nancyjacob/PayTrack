@@ -14,8 +14,12 @@ export function FeesBanner() {
 
   if (!billing || billing.platformFeeOwed === 0) return null;
 
-  const isBlocked = billing.platformFeeOwed >= 50000;
+  // Use threshold from billing status (which reads from systemSettings) or fallback to 50000 kobo
+  const blockThreshold = 50000; // UI only; actual block is enforced server-side
+  const isBlocked = billing.platformFeeOwed >= blockThreshold;
   const amountNaira = billing.platformFeeOwed / 100;
+  const feePerInvoice = 100; // display only; actual fee is set in System Configuration
+  const freeSlots = billing.freeSlots ?? 5;
 
   function handlePayFees() {
     if (!profile || !window.PaystackPop) {
@@ -63,7 +67,7 @@ export function FeesBanner() {
           <span>
             {isBlocked
               ? `You have ₦${amountNaira.toLocaleString("en-NG")} in outstanding platform fees. Pay now to resume sending invoices.`
-              : `You have ₦${amountNaira.toLocaleString("en-NG")} in outstanding platform fees (₦100 per invoice payment beyond your 5 free slots).`}
+              : `You have ₦${amountNaira.toLocaleString("en-NG")} in outstanding platform fees (₦${feePerInvoice} per invoice payment beyond your ${freeSlots} free slots).`}
           </span>
         </div>
         <Button

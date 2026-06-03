@@ -15,10 +15,13 @@ import type * as auth from "../auth.js";
 import type * as billing from "../billing.js";
 import type * as clients from "../clients.js";
 import type * as crons from "../crons.js";
+import type * as emailActions from "../emailActions.js";
 import type * as http from "../http.js";
 import type * as invoices from "../invoices.js";
 import type * as lib_email from "../lib/email.js";
 import type * as payments from "../payments.js";
+import type * as permissions from "../permissions.js";
+import type * as settings from "../settings.js";
 import type * as support from "../support.js";
 import type * as users from "../users.js";
 
@@ -36,10 +39,13 @@ declare const fullApi: ApiFromModules<{
   billing: typeof billing;
   clients: typeof clients;
   crons: typeof crons;
+  emailActions: typeof emailActions;
   http: typeof http;
   invoices: typeof invoices;
   "lib/email": typeof lib_email;
   payments: typeof payments;
+  permissions: typeof permissions;
+  settings: typeof settings;
   support: typeof support;
   users: typeof users;
 }>;

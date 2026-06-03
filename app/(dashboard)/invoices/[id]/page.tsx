@@ -27,6 +27,8 @@ import {
   Copy,
   RefreshCw,
   Download,
+  Mail,
+  CheckCircle2,
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -92,7 +94,11 @@ export default function InvoiceDetailPage() {
     if (!invoice) return;
     try {
       await sendInvoice({ invoiceId: invoice._id });
-      toast.success("Invoice sent to client");
+      toast.success(
+        invoice.client?.email
+          ? `Invoice emailed to ${invoice.client.email}`
+          : "Invoice sent to client"
+      );
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to send");
     }
@@ -102,7 +108,11 @@ export default function InvoiceDetailPage() {
     if (!invoice) return;
     try {
       await resendInvoice({ invoiceId: invoice._id });
-      toast.success("Invoice email resent to client");
+      toast.success(
+        invoice.client?.email
+          ? `Invoice re-sent to ${invoice.client.email}`
+          : "Invoice email resent"
+      );
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to resend");
     }
@@ -195,15 +205,15 @@ export default function InvoiceDetailPage() {
 
           {invoice.status === "draft" && (
             <Button size="sm" onClick={handleSend}>
-              <Send size={14} className="mr-1.5" />
-              Send
+              <Mail size={14} className="mr-1.5" />
+              Send Invoice
             </Button>
           )}
 
           {(invoice.status === "sent" || invoice.status === "overdue") && (
             <Button variant="outline" size="sm" onClick={handleResend}>
               <RefreshCw size={14} className="mr-1.5" />
-              Resend
+              Resend Email
             </Button>
           )}
 
@@ -230,6 +240,52 @@ export default function InvoiceDetailPage() {
 
         {/* ── Details ── */}
         <TabsContent value="details" className="space-y-6 mt-0">
+          {/* Email delivery status */}
+          {invoice.status === "draft" ? (
+            <div className="flex items-start gap-3 rounded-lg border border-dashed bg-muted/30 px-4 py-3">
+              <Mail size={16} className="mt-0.5 shrink-0 text-muted-foreground" />
+              <div>
+                <p className="text-sm font-medium">Ready to send</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Click <strong>Send Invoice</strong> to email this invoice directly to{" "}
+                  <strong>{invoice.client?.name ?? "the client"}</strong> at{" "}
+                  <strong>{invoice.client?.email ?? "their address"}</strong>. The
+                  email will include a payment link so they can pay online.
+                </p>
+              </div>
+            </div>
+          ) : (invoice.status === "sent" || invoice.status === "overdue") ? (
+            <div className="flex items-start gap-3 rounded-lg border bg-blue-50 border-blue-100 dark:bg-blue-900/10 dark:border-blue-800/30 px-4 py-3">
+              <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-blue-600 dark:text-blue-400" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-blue-800 dark:text-blue-300">
+                  Email delivered
+                </p>
+                <p className="text-xs text-blue-700/70 dark:text-blue-400/70 mt-0.5">
+                  Invoice emailed to{" "}
+                  <span className="font-semibold">{invoice.client?.email ?? invoice.client?.name}</span>
+                  {(invoice as { sentAt?: number }).sentAt
+                    ? ` on ${formatDate((invoice as { sentAt?: number }).sentAt!)}`
+                    : ""}
+                  . Use <strong>Resend Email</strong> to send it again.
+                </p>
+              </div>
+            </div>
+          ) : invoice.status === "paid" ? (
+            <div className="flex items-start gap-3 rounded-lg border bg-green-50 border-green-100 dark:bg-green-900/10 dark:border-green-800/30 px-4 py-3">
+              <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-green-600 dark:text-green-400" />
+              <div>
+                <p className="text-sm font-medium text-green-800 dark:text-green-300">
+                  Paid — invoice complete
+                </p>
+                <p className="text-xs text-green-700/70 dark:text-green-400/70 mt-0.5">
+                  Payment received{invoice.paidAt ? ` on ${formatDate(invoice.paidAt)}` : ""}.
+                  {invoice.client?.email && ` Originally emailed to ${invoice.client.email}.`}
+                </p>
+              </div>
+            </div>
+          ) : null}
+
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Bill To</CardTitle>
