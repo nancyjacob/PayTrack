@@ -11,7 +11,7 @@ import { formatCurrency, formatDate, type InvoiceStatus } from "@/lib/utils";
 import { InvoiceStatusBadge } from "@/components/invoice/InvoiceStatusBadge";
 import { CreditCard, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 
 export default function PayPage() {
   const { invoiceId } = useParams<{ invoiceId: string }>();
@@ -21,9 +21,7 @@ export default function PayPage() {
     invoiceId: invoiceId as Id<"invoices">,
   });
 
-  const [pendingConfirmation, setPendingConfirmation] = useState(false);
-
-  // Redirect to success page once Convex confirms the invoice is paid
+  // Redirect already-paid invoices to the success page
   useEffect(() => {
     if (invoice?.status === "paid") {
       router.replace(`/pay/${invoiceId}/success`);
@@ -51,10 +49,10 @@ export default function PayPage() {
         clientName: invoice.client.name,
       },
       callback: () => {
-        setPendingConfirmation(true);
+        router.replace(`/pay/${invoiceId}/success`);
       },
       onClose: () => {
-        if (!pendingConfirmation) toast.info("Payment cancelled");
+        toast.info("Payment cancelled");
       },
     });
 
@@ -85,19 +83,12 @@ export default function PayPage() {
   const currency = invoice.currency ?? "NGN";
   const fmt = (amount: number) => formatCurrency(amount, currency);
 
-  // Waiting for webhook to confirm — show spinner
-  if (pendingConfirmation || invoice.status === "paid") {
+  // Already paid — redirect to success page
+  if (invoice.status === "paid") {
+    router.replace(`/pay/${invoiceId}/success`);
     return (
-      <div className="flex min-h-svh items-center justify-center bg-muted/30 p-4">
-        <div className="w-full max-w-md rounded-xl border bg-card p-8 text-center space-y-4">
-          <Loader2 size={48} className="mx-auto animate-spin text-primary" />
-          <h1 className="text-xl font-heading font-semibold">
-            Confirming your payment…
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            This usually takes a few seconds. Please don&apos;t close this page.
-          </p>
-        </div>
+      <div className="flex min-h-svh items-center justify-center bg-muted/30">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }

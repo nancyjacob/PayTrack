@@ -3,7 +3,7 @@
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { type Id } from "@/convex/_generated/dataModel";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import Link from "next/link";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -16,12 +16,12 @@ import {
   Calendar,
   Hash,
   Loader2,
+  Clock,
 } from "lucide-react";
 import { useEffect } from "react";
 import confetti from "canvas-confetti";
 
 function fireConfetti() {
-  // Big center burst
   confetti({
     particleCount: 120,
     spread: 80,
@@ -29,10 +29,8 @@ function fireConfetti() {
     colors: ["#6366f1", "#22c55e", "#f59e0b", "#ec4899", "#3b82f6", "#a855f7"],
   });
 
-  // Sustained bilateral stream
   const duration = 3500;
   const end = Date.now() + duration;
-
   const frame = () => {
     confetti({
       particleCount: 5,
@@ -50,85 +48,72 @@ function fireConfetti() {
     });
     if (Date.now() < end) requestAnimationFrame(frame);
   };
-
   frame();
 }
 
 export default function PaymentSuccessPage() {
   const { invoiceId } = useParams<{ invoiceId: string }>();
-  const router = useRouter();
 
   const invoice = useQuery(api.invoices.getInvoiceById, {
     invoiceId: invoiceId as Id<"invoices">,
   });
 
+  // Fire confetti immediately on mount — don't wait for webhook confirmation
   useEffect(() => {
     fireConfetti();
   }, []);
 
-  // If someone navigates here for an invoice that isn't paid yet, send them back
-  useEffect(() => {
-    if (invoice && invoice.status !== "paid") {
-      router.replace(`/pay/${invoiceId}`);
-    }
-  }, [invoice, invoiceId, router]);
-
   if (invoice === undefined) {
     return (
-      <div className="flex min-h-svh items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-green-50">
+      <div className="flex min-h-svh items-center justify-center bg-linear-to-br from-indigo-50 via-white to-green-50">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
 
-  if (!invoice || invoice.status !== "paid") {
-    return (
-      <div className="flex min-h-svh items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-green-50">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-
-  const currency = invoice.currency ?? "NGN";
+  const confirmed = invoice?.status === "paid";
+  const currency = invoice?.currency ?? "NGN";
   const fmt = (n: number) => formatCurrency(n, currency);
 
   const details = [
     {
       icon: Hash,
       label: "Invoice Number",
-      value: invoice.invoiceNumber,
+      value: invoice?.invoiceNumber ?? "—",
       mono: true,
     },
     {
       icon: Building2,
       label: "From",
-      value: invoice.profile?.businessName ?? "—",
+      value: invoice?.profile?.businessName ?? "—",
       mono: false,
     },
     {
       icon: User,
       label: "Billed To",
-      value: invoice.client?.name ?? "—",
+      value: invoice?.client?.name ?? "—",
       mono: false,
     },
     {
       icon: Calendar,
       label: "Paid On",
-      value: invoice.paidAt ? formatDate(invoice.paidAt) : formatDate(Date.now()),
+      value: confirmed && invoice?.paidAt
+        ? formatDate(invoice.paidAt)
+        : formatDate(Date.now()),
       mono: false,
     },
   ];
 
   return (
-    <div className="flex min-h-svh items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-green-50 p-4">
+    <div className="flex min-h-svh items-center justify-center bg-linear-to-br from-indigo-50 via-white to-green-50 p-4">
       <div className="w-full max-w-lg">
-        {/* Card */}
         <div className="rounded-2xl border bg-white shadow-xl overflow-hidden">
 
           {/* Top accent bar */}
-          <div className="h-1.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-green-500" />
+          <div className="h-1.5 bg-linear-to-r from-indigo-500 via-purple-500 to-green-500" />
 
           <div className="p-8 space-y-6">
+
             {/* Icon + heading */}
             <div className="text-center space-y-3">
               <div className="flex justify-center">
@@ -136,7 +121,6 @@ export default function PaymentSuccessPage() {
                   <div className="rounded-full bg-green-100 p-5">
                     <CheckCircle size={52} className="text-green-500" strokeWidth={1.5} />
                   </div>
-                  {/* Pulse ring */}
                   <span className="absolute inset-0 rounded-full animate-ping bg-green-200 opacity-40" />
                 </div>
               </div>
@@ -151,15 +135,25 @@ export default function PaymentSuccessPage() {
               </div>
 
               {/* Amount */}
-              <div className="py-3">
-                <p className="text-xs uppercase tracking-widest text-muted-foreground font-medium mb-1">
-                  Amount Paid
-                </p>
-                <p className="text-5xl font-heading font-bold text-indigo-600">
-                  {fmt(invoice.total)}
-                </p>
-              </div>
+              {invoice && (
+                <div className="py-3">
+                  <p className="text-xs uppercase tracking-widest text-muted-foreground font-medium mb-1">
+                    Amount Paid
+                  </p>
+                  <p className="text-5xl font-heading font-bold text-indigo-600">
+                    {fmt(invoice.total)}
+                  </p>
+                </div>
+              )}
             </div>
+
+            {/* Webhook processing banner — shown until Convex confirms */}
+            {!confirmed && (
+              <div className="flex items-center gap-2.5 rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800">
+                <Clock size={14} className="shrink-0 animate-pulse" />
+                <span>Finalising confirmation — this usually takes a few seconds.</span>
+              </div>
+            )}
 
             {/* Divider */}
             <div className="relative">
@@ -173,7 +167,7 @@ export default function PaymentSuccessPage() {
               </div>
             </div>
 
-            {/* Details grid */}
+            {/* Details */}
             <div className="space-y-3">
               {details.map(({ icon: Icon, label, value, mono }) => (
                 <div
@@ -184,11 +178,7 @@ export default function PaymentSuccessPage() {
                     <Icon size={14} className="shrink-0 text-indigo-400" />
                     {label}
                   </div>
-                  <span
-                    className={`text-sm font-medium text-gray-800 ${
-                      mono ? "font-mono" : ""
-                    }`}
-                  >
+                  <span className={`text-sm font-medium text-gray-800 ${mono ? "font-mono" : ""}`}>
                     {value}
                   </span>
                 </div>
@@ -197,10 +187,17 @@ export default function PaymentSuccessPage() {
 
             {/* Verified badge */}
             <div className="flex justify-center">
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-green-50 border border-green-200 px-4 py-1.5 text-xs font-medium text-green-700">
-                <CheckCircle size={12} />
-                Verified by Paystack
-              </span>
+              {confirmed ? (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-green-50 border border-green-200 px-4 py-1.5 text-xs font-medium text-green-700">
+                  <CheckCircle size={12} />
+                  Verified by Paystack
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 border border-amber-200 px-4 py-1.5 text-xs font-medium text-amber-700">
+                  <Loader2 size={12} className="animate-spin" />
+                  Processing confirmation…
+                </span>
+              )}
             </div>
 
             {/* CTAs */}
@@ -221,11 +218,13 @@ export default function PaymentSuccessPage() {
           </div>
         </div>
 
-        {/* Footer note */}
-        <p className="text-center text-xs text-muted-foreground mt-4">
-          A confirmation has been sent to{" "}
-          <span className="font-medium">{invoice.client?.email}</span>
-        </p>
+        {/* Footer */}
+        {invoice?.client?.email && (
+          <p className="text-center text-xs text-muted-foreground mt-4">
+            A confirmation has been sent to{" "}
+            <span className="font-medium">{invoice.client.email}</span>
+          </p>
+        )}
       </div>
     </div>
   );
