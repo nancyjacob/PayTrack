@@ -26,29 +26,26 @@ export default function AdminLoginPage() {
   // Set to true after signIn resolves — waits for isAdmin query to catch up
   const [waitingForAdmin, setWaitingForAdmin] = useState(false);
 
-  // If an active admin session already exists, skip straight to the dashboard
+  // Redirect whenever Convex confirms admin status — covers both "already logged in"
+  // and "just signed in" cases. Never redirects on stale localStorage alone.
   useEffect(() => {
-    if (localStorage.getItem(ADMIN_SESSION_KEY) === "1") {
-      router.replace("/admin");
-    }
-  }, [router]);
+    if (isAdmin !== true) return;
+    localStorage.setItem(ADMIN_SESSION_KEY, "1");
+    router.replace("/admin");
+  }, [isAdmin, router]);
 
-  // After signIn completes, wait for isAdmin then grant or deny
+  // After signIn resolves, handle the non-admin error case.
   useEffect(() => {
     if (!waitingForAdmin) return;
     if (isAdmin === undefined) return; // still resolving
 
-    if (isAdmin === true) {
-      localStorage.setItem(ADMIN_SESSION_KEY, "1");
-      router.replace("/admin");
-    } else {
+    if (isAdmin !== true) {
       toast.error("This account does not have admin privileges.");
-      setTimeout(() => {
-        setWaitingForAdmin(false);
-        setLoading(false);
-      }, 0);
+      setWaitingForAdmin(false);
+      setLoading(false);
     }
-  }, [isAdmin, waitingForAdmin, router]);
+    // isAdmin === true: the effect above handles redirect
+  }, [isAdmin, waitingForAdmin]);
 
   async function handleSignIn(e: React.FormEvent) {
     e.preventDefault();

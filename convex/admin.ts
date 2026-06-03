@@ -352,7 +352,7 @@ export const inviteAdmin = action({
       { email, name, phone, role }
     );
 
-    const appUrl = process.env.APP_URL ?? "http://localhost:3000";
+    const appUrl = process.env.SITE_URL ?? process.env.APP_URL ?? "http://localhost:3000";
     const inviteUrl = `${appUrl}/admin/accept-invite?token=${token}`;
     const roleLabel =
       role === "super_admin"

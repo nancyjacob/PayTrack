@@ -306,15 +306,25 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   useEffect(() => {
     if (isPublicAdminPage) return;
+    // Wait for all three states to be fully resolved before deciding to redirect.
+    // isAdmin can be a stale `false` while Convex re-queries after auth establishes,
+    // so we also gate on isAuthenticated being settled first.
     if (authLoading || adminSession === null) return;
-    if (!isAuthenticated || !isAdmin || !adminSession) {
+    if (!isAuthenticated) {
+      router.replace("/admin/login");
+      return;
+    }
+    // isAuthenticated = true: now wait for the isAdmin query to reflect the
+    // authenticated context (it may briefly show a stale false).
+    if (isAdmin === undefined || isAdmin === null) return;
+    if (!isAdmin || !adminSession) {
       router.replace("/admin/login");
     }
   }, [isAuthenticated, isAdmin, authLoading, adminSession, router, isPublicAdminPage]);
 
   if (isPublicAdminPage) return <>{children}</>;
 
-  if (authLoading || isAdmin === undefined || adminSession === null) {
+  if (authLoading || adminSession === null || isAdmin === undefined || isAdmin === null) {
     return (
       <div className="flex h-svh items-center justify-center">
         <Loader2 size={24} className="animate-spin text-muted-foreground" />
