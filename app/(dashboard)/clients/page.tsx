@@ -1,10 +1,9 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { type Id } from "@/convex/_generated/dataModel";
-import { useState } from "react";
 import { type ColumnDef } from "@tanstack/react-table";
 import { DataTable, SortableHeader } from "@/components/ui/data-table";
 import { Button } from "@/components/ui/button";
@@ -17,6 +16,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Plus, Eye, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { formatDate } from "@/lib/utils";
@@ -41,6 +41,8 @@ export default function ClientsPage() {
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: Id<"clients">; name: string } | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -65,13 +67,17 @@ export default function ClientsPage() {
     }
   }
 
-  async function handleDelete(clientId: Id<"clients">, clientName: string) {
-    if (!confirm(`Delete client "${clientName}"? This cannot be undone.`)) return;
+  async function executeDelete() {
+    if (!deleteTarget) return;
+    setDeleting(true);
     try {
-      await deleteClient({ clientId });
+      await deleteClient({ clientId: deleteTarget.id });
       toast.success("Client deleted");
+      setDeleteTarget(null);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to delete");
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -133,7 +139,7 @@ export default function ClientsPage() {
                 variant="ghost"
                 size="icon"
                 className="text-destructive hover:text-destructive"
-                onClick={() => handleDelete(client._id, client.name)}
+                onClick={() => setDeleteTarget({ id: client._id, name: client.name })}
               >
                 <Trash2 size={15} />
               </Button>
@@ -218,6 +224,17 @@ export default function ClientsPage() {
         loading={clients === undefined}
         searchPlaceholder="Search clients…"
         emptyMessage="No clients yet. Add your first client to get started."
+      />
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        onOpenChange={(v) => !v && setDeleteTarget(null)}
+        title="Delete client?"
+        description={`"${deleteTarget?.name}" and all their data will be permanently removed. This cannot be undone.`}
+        confirmLabel="Delete"
+        variant="destructive"
+        onConfirm={executeDelete}
+        loading={deleting}
       />
     </div>
   );

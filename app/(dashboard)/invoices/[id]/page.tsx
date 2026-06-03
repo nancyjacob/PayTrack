@@ -5,7 +5,7 @@ import { api } from "@/convex/_generated/api";
 import { type Id } from "@/convex/_generated/dataModel";
 import { useParams, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
-import { Component, type ReactNode } from "react";
+import { Component, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
@@ -17,6 +17,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { InvoiceStatusBadge } from "@/components/invoice/InvoiceStatusBadge";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { formatCurrency, formatDate, type InvoiceStatus } from "@/lib/utils";
 import {
   ArrowLeft,
@@ -70,6 +71,9 @@ export default function InvoiceDetailPage() {
   const deleteInvoice = useMutation(api.invoices.deleteInvoice);
   const duplicateInvoice = useMutation(api.invoices.duplicateInvoice);
 
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
   if (invoice === undefined) {
     return (
       <div className="space-y-4 max-w-2xl">
@@ -118,15 +122,16 @@ export default function InvoiceDetailPage() {
     }
   }
 
-  async function handleDelete() {
+  async function executeDelete() {
     if (!invoice) return;
-    if (!confirm("Delete this draft invoice?")) return;
+    setDeleting(true);
     try {
       await deleteInvoice({ invoiceId: invoice._id });
       toast.success("Invoice deleted");
       router.push("/invoices");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to delete");
+      setDeleting(false);
     }
   }
 
@@ -222,7 +227,7 @@ export default function InvoiceDetailPage() {
               variant="outline"
               size="sm"
               className="text-destructive hover:text-destructive"
-              onClick={handleDelete}
+              onClick={() => setShowDeleteConfirm(true)}
             >
               <Trash2 size={14} />
             </Button>
@@ -441,6 +446,17 @@ export default function InvoiceDetailPage() {
           )}
         </TabsContent>
       </Tabs>
+
+      <ConfirmDialog
+        open={showDeleteConfirm}
+        onOpenChange={setShowDeleteConfirm}
+        title="Delete invoice?"
+        description={`Invoice ${invoice.invoiceNumber} will be permanently deleted. This action cannot be undone.`}
+        confirmLabel="Delete"
+        variant="destructive"
+        onConfirm={executeDelete}
+        loading={deleting}
+      />
     </div>
   );
 }

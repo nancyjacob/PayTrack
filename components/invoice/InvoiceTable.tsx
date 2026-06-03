@@ -1,10 +1,11 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { type ColumnDef } from "@tanstack/react-table";
 import { DataTable, SortableHeader } from "@/components/ui/data-table";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { InvoiceStatusBadge } from "./InvoiceStatusBadge";
 import { formatNaira, formatDate, type InvoiceStatus } from "@/lib/utils";
 import { Eye, Send, Trash2, FileText, Plus, RefreshCw } from "lucide-react";
@@ -36,6 +37,9 @@ export function InvoiceTable({ invoices, loading, header }: Props) {
   const resendInvoice = useMutation(api.invoices.resendInvoice);
   const deleteInvoice = useMutation(api.invoices.deleteInvoice);
 
+  const [pendingDeleteId, setPendingDeleteId] = useState<Id<"invoices"> | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
   async function handleSend(inv: Invoice) {
     try {
       await sendInvoice({ invoiceId: inv._id });
@@ -62,13 +66,17 @@ export function InvoiceTable({ invoices, loading, header }: Props) {
     }
   }
 
-  async function handleDelete(invoiceId: Id<"invoices">) {
-    if (!confirm("Delete this draft invoice?")) return;
+  async function executeDelete() {
+    if (!pendingDeleteId) return;
+    setDeleting(true);
     try {
-      await deleteInvoice({ invoiceId });
+      await deleteInvoice({ invoiceId: pendingDeleteId });
       toast.success("Invoice deleted");
+      setPendingDeleteId(null);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to delete");
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -187,7 +195,7 @@ export function InvoiceTable({ invoices, loading, header }: Props) {
                     variant="ghost"
                     size="icon"
                     className="text-destructive hover:text-destructive"
-                    onClick={() => handleDelete(inv._id)}
+                    onClick={() => setPendingDeleteId(inv._id)}
                     title="Delete draft"
                   >
                     <Trash2 size={15} />
@@ -250,6 +258,17 @@ export function InvoiceTable({ invoices, loading, header }: Props) {
         loading={loading}
         searchPlaceholder="Search invoices…"
         emptyComponent={emptyComponent}
+      />
+
+      <ConfirmDialog
+        open={pendingDeleteId !== null}
+        onOpenChange={(v) => !v && setPendingDeleteId(null)}
+        title="Delete invoice?"
+        description="This draft invoice will be permanently deleted. This action cannot be undone."
+        confirmLabel="Delete"
+        variant="destructive"
+        onConfirm={executeDelete}
+        loading={deleting}
       />
     </div>
   );

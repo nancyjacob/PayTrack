@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { type Id } from "@/convex/_generated/dataModel";
@@ -17,6 +17,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { toast } from "sonner";
 import { Phone, AtSign, Building2, Trash2 } from "lucide-react";
 
@@ -168,6 +169,9 @@ function PlatformUsersTable() {
   const canEdit = isSuperAdmin || can("users", "edit");
   const canDelete = isSuperAdmin || can("users", "delete");
 
+  const [deleteTarget, setDeleteTarget] = useState<{ id: Id<"userProfiles">; name: string } | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
   const users = useMemo(
     () => allUsers?.filter((u) => !u.isAdmin && !u.adminRole) ?? [],
     [allUsers]
@@ -185,18 +189,17 @@ function PlatformUsersTable() {
     }
   }
 
-  async function handleDelete(profileId: Id<"userProfiles">, name: string) {
-    if (
-      !confirm(
-        `Delete ${name}?\n\nThis will permanently remove their account, invoices, clients, and all associated data. This action cannot be undone.`
-      )
-    )
-      return;
+  async function executeDelete() {
+    if (!deleteTarget) return;
+    setDeleting(true);
     try {
-      await deleteUser({ profileId });
-      toast.success(`${name} has been deleted`);
+      await deleteUser({ profileId: deleteTarget.id });
+      toast.success(`${deleteTarget.name} has been deleted`);
+      setDeleteTarget(null);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to delete user");
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -291,7 +294,7 @@ function PlatformUsersTable() {
                         variant="ghost"
                         size="sm"
                         onClick={() =>
-                          handleDelete(user._id, user.ownerName || user.businessName)
+                          setDeleteTarget({ id: user._id, name: user.ownerName || user.businessName })
                         }
                         className="h-7 text-xs gap-1 text-destructive hover:text-destructive hover:bg-destructive/10"
                       >
@@ -314,14 +317,27 @@ function PlatformUsersTable() {
   );
 
   return (
-    <DataTable
-      columns={columns}
-      data={users}
-      loading={allUsers === undefined}
-      searchPlaceholder="Search by business, owner, or email…"
-      emptyMessage="No users found."
-      defaultPageSize={20}
-    />
+    <>
+      <DataTable
+        columns={columns}
+        data={users}
+        loading={allUsers === undefined}
+        searchPlaceholder="Search by business, owner, or email…"
+        emptyMessage="No users found."
+        defaultPageSize={20}
+      />
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        onOpenChange={(v) => !v && setDeleteTarget(null)}
+        title="Delete user account?"
+        description={`This will permanently remove ${deleteTarget?.name}'s account, invoices, clients, and all associated data. This action cannot be undone.`}
+        confirmLabel="Delete"
+        variant="destructive"
+        onConfirm={executeDelete}
+        loading={deleting}
+      />
+    </>
   );
 }
 

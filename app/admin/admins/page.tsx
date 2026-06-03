@@ -19,6 +19,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { toast } from "sonner";
 import {
   Crown,
@@ -327,6 +328,11 @@ function AdminManagementView() {
   const [editingId, setEditingId] = useState<Id<"userProfiles"> | null>(null);
   const [newRole, setNewRole] = useState<AdminRole>("admin");
 
+  const [revokeTarget, setRevokeTarget] = useState<{ profileId: Id<"userProfiles">; name: string } | null>(null);
+  const [cancelInviteTarget, setCancelInviteTarget] = useState<Id<"adminInvitations"> | null>(null);
+  const [saveRoleTarget, setSaveRoleTarget] = useState<Id<"userProfiles"> | null>(null);
+  const [actionLoading, setActionLoading] = useState(false);
+
   const canCreate = isSuperAdmin || can("users", "create");
   const canEdit = isSuperAdmin || can("users", "edit");
   const canDelete = isSuperAdmin || can("users", "delete");
@@ -335,33 +341,46 @@ function AdminManagementView() {
   const pendingAdmins: AdminEntry[] = (entries?.invitations ?? []) as PendingAdmin[];
   const allEntries: AdminEntry[] = [...activeAdmins, ...pendingAdmins];
 
-  async function handleUpdateRole(profileId: Id<"userProfiles">) {
+  async function executeUpdateRole() {
+    if (!saveRoleTarget) return;
+    setActionLoading(true);
     try {
-      await updateRole({ profileId, role: newRole });
+      await updateRole({ profileId: saveRoleTarget, role: newRole });
       toast.success("Role updated");
       setEditingId(null);
+      setSaveRoleTarget(null);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed");
+    } finally {
+      setActionLoading(false);
     }
   }
 
-  async function handleRevoke(profileId: Id<"userProfiles">, name: string) {
-    if (!confirm(`Remove admin access for ${name}?`)) return;
+  async function executeRevoke() {
+    if (!revokeTarget) return;
+    setActionLoading(true);
     try {
-      await revokeAdmin({ profileId });
+      await revokeAdmin({ profileId: revokeTarget.profileId });
       toast.success("Admin access revoked");
+      setRevokeTarget(null);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed");
+    } finally {
+      setActionLoading(false);
     }
   }
 
-  async function handleRevokeInvite(id: Id<"adminInvitations">) {
-    if (!confirm("Cancel this pending invitation?")) return;
+  async function executeCancelInvite() {
+    if (!cancelInviteTarget) return;
+    setActionLoading(true);
     try {
-      await revokeInv({ invitationId: id });
+      await revokeInv({ invitationId: cancelInviteTarget });
       toast.success("Invitation cancelled");
+      setCancelInviteTarget(null);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed");
+    } finally {
+      setActionLoading(false);
     }
   }
 
@@ -431,7 +450,7 @@ function AdminManagementView() {
                 <Button
                   size="sm"
                   className="h-7 text-xs"
-                  onClick={() => handleUpdateRole(entry.profileId)}
+                  onClick={() => setSaveRoleTarget(entry.profileId)}
                 >
                   Save
                 </Button>
@@ -508,7 +527,7 @@ function AdminManagementView() {
                           variant="ghost"
                           size="sm"
                           className="h-7 text-xs gap-1 text-destructive hover:text-destructive"
-                          onClick={() => handleRevoke(entry.profileId, entry.name)}
+                          onClick={() => setRevokeTarget({ profileId: entry.profileId, name: entry.name })}
                         >
                           <UserMinus size={12} />
                           Revoke
@@ -523,7 +542,7 @@ function AdminManagementView() {
                       variant="ghost"
                       size="sm"
                       className="h-7 text-xs text-destructive hover:text-destructive"
-                      onClick={() => handleRevokeInvite(entry.invitationId)}
+                      onClick={() => setCancelInviteTarget(entry.invitationId)}
                     >
                       Cancel
                     </Button>
@@ -541,9 +560,46 @@ function AdminManagementView() {
     [canEdit, canDelete, editingId, newRole]
   );
 
+  const saveRoleEntry = saveRoleTarget
+    ? (allEntries.find((e) => e.kind === "active" && e.profileId === saveRoleTarget) as ActiveAdmin | undefined)
+    : undefined;
+
   return (
     <div className="space-y-6">
       <CreateAdminModal open={modalOpen} onClose={() => setModalOpen(false)} />
+
+      <ConfirmDialog
+        open={saveRoleTarget !== null}
+        onOpenChange={(v) => !v && setSaveRoleTarget(null)}
+        title="Update admin role?"
+        description={`Change ${saveRoleEntry?.name ?? "this admin"}'s role to ${newRole === "super_admin" ? "Super Admin" : newRole === "admin" ? "Admin" : "Support Agent"}?`}
+        confirmLabel="Save"
+        variant="default"
+        onConfirm={executeUpdateRole}
+        loading={actionLoading}
+      />
+
+      <ConfirmDialog
+        open={revokeTarget !== null}
+        onOpenChange={(v) => !v && setRevokeTarget(null)}
+        title="Revoke admin access?"
+        description={`${revokeTarget?.name} will lose all admin privileges and be converted to a regular user.`}
+        confirmLabel="Revoke"
+        variant="destructive"
+        onConfirm={executeRevoke}
+        loading={actionLoading}
+      />
+
+      <ConfirmDialog
+        open={cancelInviteTarget !== null}
+        onOpenChange={(v) => !v && setCancelInviteTarget(null)}
+        title="Cancel invitation?"
+        description="This invitation link will be invalidated. The recipient will no longer be able to use it to join as an admin."
+        confirmLabel="Cancel Invitation"
+        variant="destructive"
+        onConfirm={executeCancelInvite}
+        loading={actionLoading}
+      />
 
       <div className="flex items-start justify-between gap-4">
         <div>

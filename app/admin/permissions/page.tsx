@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { toast } from "sonner";
 import { Crown, Shield, Headphones, RotateCcw, Save } from "lucide-react";
 
@@ -98,9 +99,11 @@ function RolePermissionCard({
   const updatePermissions = useMutation(api.permissions.updateRolePermissions);
   const resetToDefaults   = useMutation(api.permissions.resetRoleToDefaults);
 
-  const [draft, setDraft]   = useState<Record<string, Set<string>>>({});
-  const [dirty, setDirty]   = useState(false);
-  const [saving, setSaving] = useState(false);
+  const [draft, setDraft]         = useState<Record<string, Set<string>>>({});
+  const [dirty, setDirty]         = useState(false);
+  const [saving, setSaving]       = useState(false);
+  const [showReset, setShowReset] = useState(false);
+  const [resetting, setResetting] = useState(false);
 
   useEffect(() => {
     const initial: Record<string, Set<string>> = {};
@@ -143,13 +146,16 @@ function RolePermissionCard({
     }
   }
 
-  async function handleReset() {
-    if (!confirm(`Reset ${ROLE_META[role].label} to default permissions?`)) return;
+  async function executeReset() {
+    setResetting(true);
     try {
       await resetToDefaults({ role });
       toast.success("Reset to defaults");
+      setShowReset(false);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to reset");
+    } finally {
+      setResetting(false);
     }
   }
 
@@ -183,7 +189,7 @@ function RolePermissionCard({
               variant="ghost"
               size="sm"
               className="h-7 text-xs gap-1 text-muted-foreground shrink-0"
-              onClick={handleReset}
+              onClick={() => setShowReset(true)}
             >
               <RotateCcw size={12} />
               Reset
@@ -249,6 +255,17 @@ function RolePermissionCard({
           </div>
         )}
       </CardContent>
+
+      <ConfirmDialog
+        open={showReset}
+        onOpenChange={setShowReset}
+        title={`Reset ${ROLE_META[role].label} permissions?`}
+        description="All permission toggles for this role will be restored to their default values. Any unsaved changes will also be discarded."
+        confirmLabel="Reset to Defaults"
+        variant="destructive"
+        onConfirm={executeReset}
+        loading={resetting}
+      />
     </Card>
   );
 }

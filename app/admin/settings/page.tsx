@@ -18,6 +18,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { toast } from "sonner";
 import {
   Globe,
@@ -240,6 +241,9 @@ export default function SettingsPage() {
   const initSettings = useMutation(api.settings.initSystemSettings);
   const resetAll = useMutation(api.settings.resetAllSettings);
 
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [resetting, setResetting] = useState(false);
+
   useEffect(() => {
     initSettings();
   }, [initSettings]);
@@ -275,18 +279,16 @@ export default function SettingsPage() {
     },
   ];
 
-  async function handleResetAll() {
-    if (
-      !confirm(
-        "Reset ALL system settings to factory defaults? This cannot be undone."
-      )
-    )
-      return;
+  async function executeResetAll() {
+    setResetting(true);
     try {
       await resetAll();
       toast.success("All settings reset to defaults");
+      setShowResetConfirm(false);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to reset");
+    } finally {
+      setResetting(false);
     }
   }
 
@@ -308,7 +310,7 @@ export default function SettingsPage() {
             variant="outline"
             size="sm"
             className="gap-2 text-destructive border-destructive/30 hover:bg-destructive/5 shrink-0"
-            onClick={handleResetAll}
+            onClick={() => setShowResetConfirm(true)}
           >
             <RotateCcw size={13} />
             Reset All to Defaults
@@ -323,6 +325,17 @@ export default function SettingsPage() {
           make changes.
         </div>
       )}
+
+      <ConfirmDialog
+        open={showResetConfirm}
+        onOpenChange={setShowResetConfirm}
+        title="Reset all settings?"
+        description="This will restore every system setting to its factory default value. All customisations will be lost and cannot be recovered."
+        confirmLabel="Reset All"
+        variant="destructive"
+        onConfirm={executeResetAll}
+        loading={resetting}
+      />
 
       <Tabs defaultValue="regional">
         <TabsList>
