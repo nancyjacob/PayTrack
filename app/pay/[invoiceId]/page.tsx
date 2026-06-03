@@ -3,85 +3,32 @@
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { type Id } from "@/convex/_generated/dataModel";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Script from "next/script";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { formatCurrency, formatDate, type InvoiceStatus } from "@/lib/utils";
 import { InvoiceStatusBadge } from "@/components/invoice/InvoiceStatusBadge";
-import { CheckCircle, CreditCard, Loader2 } from "lucide-react";
+import { CreditCard, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { useState, useEffect } from "react";
-import confetti from "canvas-confetti";
-
-function PaidScreen({
-  invoice,
-  fmt,
-}: {
-  invoice: { invoiceNumber: string; total: number; paidAt?: number | null };
-  fmt: (n: number) => string;
-}) {
-  useEffect(() => {
-    const duration = 3000;
-    const end = Date.now() + duration;
-
-    const frame = () => {
-      confetti({
-        particleCount: 6,
-        angle: 60,
-        spread: 55,
-        origin: { x: 0 },
-        colors: ["#6366f1", "#22c55e", "#f59e0b", "#ec4899", "#3b82f6"],
-      });
-      confetti({
-        particleCount: 6,
-        angle: 120,
-        spread: 55,
-        origin: { x: 1 },
-        colors: ["#6366f1", "#22c55e", "#f59e0b", "#ec4899", "#3b82f6"],
-      });
-      if (Date.now() < end) requestAnimationFrame(frame);
-    };
-
-    frame();
-  }, []);
-
-  return (
-    <div className="flex min-h-svh items-center justify-center bg-muted/30 p-4">
-      <div className="w-full max-w-md rounded-xl border bg-card p-8 text-center space-y-4">
-        <div className="flex justify-center">
-          <div className="rounded-full bg-green-100 p-4">
-            <CheckCircle size={48} className="text-green-500" />
-          </div>
-        </div>
-        <h1 className="text-2xl font-heading font-bold">Payment Confirmed!</h1>
-        <p className="text-muted-foreground">
-          Invoice <strong>{invoice.invoiceNumber}</strong> for{" "}
-          <strong>{fmt(invoice.total)}</strong> has been paid successfully.
-        </p>
-        {invoice.paidAt && (
-          <p className="text-sm text-muted-foreground">
-            Paid on {formatDate(invoice.paidAt)}
-          </p>
-        )}
-        <div className="pt-2">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-green-100 px-3 py-1 text-sm font-medium text-green-700">
-            <CheckCircle size={14} />
-            Payment complete
-          </span>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 export default function PayPage() {
   const { invoiceId } = useParams<{ invoiceId: string }>();
+  const router = useRouter();
+
   const invoice = useQuery(api.invoices.getInvoiceById, {
     invoiceId: invoiceId as Id<"invoices">,
   });
 
   const [pendingConfirmation, setPendingConfirmation] = useState(false);
+
+  // Redirect to success page once Convex confirms the invoice is paid
+  useEffect(() => {
+    if (invoice?.status === "paid") {
+      router.replace(`/pay/${invoiceId}/success`);
+    }
+  }, [invoice?.status, invoiceId, router]);
 
   function handlePayNow() {
     if (!invoice || !invoice.client) return;
@@ -105,7 +52,6 @@ export default function PayPage() {
       },
       callback: () => {
         setPendingConfirmation(true);
-        toast.success("Payment received! Confirming…", { duration: 10000 });
       },
       onClose: () => {
         if (!pendingConfirmation) toast.info("Payment cancelled");
@@ -126,9 +72,9 @@ export default function PayPage() {
   if (invoice === null) {
     return (
       <div className="flex min-h-svh items-center justify-center bg-muted/30">
-        <div className="text-center">
+        <div className="text-center space-y-2">
           <p className="text-2xl font-bold">Invoice not found</p>
-          <p className="text-muted-foreground mt-2">
+          <p className="text-muted-foreground">
             This payment link may be invalid or expired.
           </p>
         </div>
@@ -139,18 +85,17 @@ export default function PayPage() {
   const currency = invoice.currency ?? "NGN";
   const fmt = (amount: number) => formatCurrency(amount, currency);
 
-  if (invoice.status === "paid") {
-    return <PaidScreen invoice={invoice} fmt={fmt} />;
-  }
-
-  if (pendingConfirmation) {
+  // Waiting for webhook to confirm — show spinner
+  if (pendingConfirmation || invoice.status === "paid") {
     return (
       <div className="flex min-h-svh items-center justify-center bg-muted/30 p-4">
         <div className="w-full max-w-md rounded-xl border bg-card p-8 text-center space-y-4">
           <Loader2 size={48} className="mx-auto animate-spin text-primary" />
-          <h1 className="text-xl font-heading font-semibold">Confirming your payment…</h1>
+          <h1 className="text-xl font-heading font-semibold">
+            Confirming your payment…
+          </h1>
           <p className="text-sm text-muted-foreground">
-            This usually takes a few seconds. Please don't close this page.
+            This usually takes a few seconds. Please don&apos;t close this page.
           </p>
         </div>
       </div>
@@ -165,7 +110,7 @@ export default function PayPage() {
       />
 
       <div className="flex min-h-svh items-center justify-center bg-muted/30 p-4">
-        <div className="w-full max-w-md space-y-0 rounded-xl border bg-card overflow-hidden">
+        <div className="w-full max-w-md rounded-xl border bg-card overflow-hidden">
           {/* Business header */}
           <div className="bg-primary px-6 py-5 text-primary-foreground">
             <p className="text-sm font-medium opacity-80">
@@ -210,11 +155,7 @@ export default function PayPage() {
                 <div className="space-y-2">
                   {invoice.items.map(
                     (
-                      item: {
-                        description: string;
-                        quantity: number;
-                        total: number;
-                      },
+                      item: { description: string; quantity: number; total: number },
                       i: number
                     ) => (
                       <div key={i} className="flex justify-between text-sm">
