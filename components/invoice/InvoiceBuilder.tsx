@@ -19,7 +19,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   Popover,
@@ -181,6 +180,7 @@ export function InvoiceBuilder(props: Props) {
       });
       setSelectedClientId(id);
       setNewClientOpen(false);
+      setClientOpen(true);
       setNewClientName("");
       setNewClientEmail("");
       setNewClientPhone("");
@@ -299,6 +299,46 @@ export function InvoiceBuilder(props: Props) {
               <CardTitle className="text-base">Bill To</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
+              {/* Dialog lives outside the Popover so opening it doesn't trigger
+                  Popover's onOpenChange(false) via Radix focus-management */}
+              <Dialog open={newClientOpen} onOpenChange={setNewClientOpen}>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Add New Client</DialogTitle>
+                  </DialogHeader>
+                  <form onSubmit={handleAddNewClient} className="space-y-4 pt-2">
+                    <div className="space-y-2">
+                      <Label>Name</Label>
+                      <Input
+                        value={newClientName}
+                        onChange={(e) => setNewClientName(e.target.value)}
+                        placeholder="Acme Ltd"
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Email</Label>
+                      <Input
+                        type="email"
+                        value={newClientEmail}
+                        onChange={(e) => setNewClientEmail(e.target.value)}
+                        placeholder="billing@acme.com"
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Phone (optional)</Label>
+                      <Input
+                        value={newClientPhone}
+                        onChange={(e) => setNewClientPhone(e.target.value)}
+                        placeholder="08012345678"
+                      />
+                    </div>
+                    <Button type="submit" className="w-full">Add Client</Button>
+                  </form>
+                </DialogContent>
+              </Dialog>
+
               <Popover open={clientOpen} onOpenChange={setClientOpen}>
                 <PopoverTrigger asChild>
                   <Button
@@ -344,49 +384,18 @@ export function InvoiceBuilder(props: Props) {
                     </CommandList>
                   </Command>
                   <div className="border-t p-2">
-                    <Dialog open={newClientOpen} onOpenChange={setNewClientOpen}>
-                      <DialogTrigger asChild>
-                        <Button variant="ghost" size="sm" className="w-full justify-start">
-                          <Plus size={14} className="mr-2" />
-                          Add new client
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent>
-                        <DialogHeader>
-                          <DialogTitle>Add New Client</DialogTitle>
-                        </DialogHeader>
-                        <form onSubmit={handleAddNewClient} className="space-y-4 pt-2">
-                          <div className="space-y-2">
-                            <Label>Name</Label>
-                            <Input
-                              value={newClientName}
-                              onChange={(e) => setNewClientName(e.target.value)}
-                              placeholder="Acme Ltd"
-                              required
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label>Email</Label>
-                            <Input
-                              type="email"
-                              value={newClientEmail}
-                              onChange={(e) => setNewClientEmail(e.target.value)}
-                              placeholder="billing@acme.com"
-                              required
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label>Phone (optional)</Label>
-                            <Input
-                              value={newClientPhone}
-                              onChange={(e) => setNewClientPhone(e.target.value)}
-                              placeholder="08012345678"
-                            />
-                          </div>
-                          <Button type="submit" className="w-full">Add Client</Button>
-                        </form>
-                      </DialogContent>
-                    </Dialog>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-full justify-start"
+                      onClick={() => {
+                        setClientOpen(false);
+                        setNewClientOpen(true);
+                      }}
+                    >
+                      <Plus size={14} className="mr-2" />
+                      Add new client
+                    </Button>
                   </div>
                 </PopoverContent>
               </Popover>

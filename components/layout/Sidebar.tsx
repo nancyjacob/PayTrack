@@ -13,13 +13,11 @@ import {
   LogOut,
   BarChart2,
   CreditCard,
-  Building2,
 } from "lucide-react";
+import { LogoMark } from "@/components/logo";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { useAuthActions } from "@convex-dev/auth/react";
-import { useQuery } from "convex/react";
-import { api } from "@/convex/_generated/api";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -35,8 +33,6 @@ export function Sidebar() {
   const router = useRouter();
   const { signOut } = useAuthActions();
   const [collapsed, setCollapsed] = useState(false);
-  const profile = useQuery(api.users.getMyProfile);
-
   async function handleSignOut() {
     await signOut();
     router.replace("/");
@@ -52,15 +48,15 @@ export function Sidebar() {
       {/* Header */}
       <div className="flex h-16 items-center justify-between border-b border-border px-4">
         {!collapsed && (
-          <div className="flex items-center gap-2 min-w-0">
-            <Building2 size={16} className="text-primary shrink-0" />
-            <span className="font-heading text-sm font-semibold text-sidebar-foreground tracking-tight truncate">
-              {profile?.businessName ?? "PayTrack"}
+          <div className="flex items-center gap-2.5 min-w-0">
+            <LogoMark size={30} className="shrink-0" />
+            <span className="font-heading text-sm font-semibold text-sidebar-foreground tracking-tight">
+              PayTrack
             </span>
           </div>
         )}
         {collapsed && (
-          <Building2 size={18} className="text-primary mx-auto" />
+          <LogoMark size={26} className="mx-auto" />
         )}
         <button
           onClick={() => setCollapsed(!collapsed)}
