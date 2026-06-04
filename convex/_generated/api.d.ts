@@ -21,6 +21,7 @@ import type * as invoices from "../invoices.js";
 import type * as lib_email from "../lib/email.js";
 import type * as payments from "../payments.js";
 import type * as permissions from "../permissions.js";
+import type * as reminders from "../reminders.js";
 import type * as settings from "../settings.js";
 import type * as support from "../support.js";
 import type * as users from "../users.js";
@@ -46,6 +47,7 @@ declare const fullApi: ApiFromModules<{
   "lib/email": typeof lib_email;
   payments: typeof payments;
   permissions: typeof permissions;
+  reminders: typeof reminders;
   settings: typeof settings;
   support: typeof support;
   users: typeof users;
