@@ -6,7 +6,6 @@ import { useConvexAuth } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
-import { useAuthActions } from "@convex-dev/auth/react";
 import { usePermissions, type Resource } from "@/hooks/usePermissions";
 import { AccessDenied } from "@/components/admin/PermissionGate";
 import {
@@ -175,11 +174,9 @@ function NavGroupItem({ item }: { item: NavItem }) {
 function AdminSidebar({ navItems }: { navItems: NavItem[] }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { signOut } = useAuthActions();
 
-  async function handleSignOut() {
+  function handleSignOut() {
     localStorage.removeItem("adminSession");
-    await signOut();
     router.replace("/admin/login");
   }
 

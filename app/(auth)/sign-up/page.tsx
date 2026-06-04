@@ -7,6 +7,7 @@ import { z } from "zod";
 import { Eye, EyeOff } from "lucide-react";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useRouter } from "next/navigation";
+import { CUSTOMER_SESSION_KEY } from "@/components/AuthGuard";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -61,6 +62,7 @@ export default function SignUpPage() {
         password: values.password,
         flow: "signUp",
       });
+      localStorage.setItem(CUSTOMER_SESSION_KEY, "1");
       router.replace("/settings");
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Registration failed";

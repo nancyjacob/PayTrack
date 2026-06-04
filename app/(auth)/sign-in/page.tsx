@@ -6,6 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useRouter } from "next/navigation";
+import { CUSTOMER_SESSION_KEY } from "@/components/AuthGuard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -78,6 +79,7 @@ export default function SignInPage() {
         password: values.password,
         flow: "signIn",
       });
+      localStorage.setItem(CUSTOMER_SESSION_KEY, "1");
       router.replace("/dashboard");
     } catch {
       toast.error("Invalid email or password");
@@ -98,6 +100,7 @@ export default function SignInPage() {
   async function handleOtpVerify(values: OtpCodeValues) {
     try {
       await signIn("email", { email: otpEmail, code: values.code });
+      localStorage.setItem(CUSTOMER_SESSION_KEY, "1");
       router.replace("/dashboard");
     } catch {
       toast.error("Invalid or expired code");

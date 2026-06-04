@@ -32,6 +32,8 @@ export default defineSchema({
     ),
     paidPaymentCount: v.optional(v.number()),
     platformFeeOwed: v.optional(v.number()),
+    remindersEnabled: v.optional(v.boolean()),
+    reminderDays: v.optional(v.array(v.number())),
   })
     .index("by_userId", ["userId"])
     .index("by_email", ["email"]),
@@ -167,4 +169,13 @@ export default defineSchema({
   })
     .index("by_role", ["role"])
     .index("by_role_resource", ["role", "resource"]),
+
+  invoiceReminders: defineTable({
+    invoiceId: v.id("invoices"),
+    userId: v.id("users"),
+    reminderKey: v.string(),
+    sentAt: v.number(),
+  })
+    .index("by_invoiceId", ["invoiceId"])
+    .index("by_invoiceId_and_reminderKey", ["invoiceId", "reminderKey"]),
 });

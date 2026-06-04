@@ -20,7 +20,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
-import { Upload, X } from "lucide-react";
+import { Upload, X, Bell, BellOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type BrandFont = "Helvetica" | "Times-Roman" | "Courier";
@@ -119,6 +119,160 @@ function getDominantColor(src: string): Promise<string> {
     img.src = src;
   });
 }
+
+// ─── Reminder interval options ────────────────────────────────────────────────
+
+const REMINDER_OPTIONS: { dayOffset: number; label: string; sublabel: string }[] = [
+  { dayOffset: -4, label: "4 days before due",  sublabel: "Early heads-up" },
+  { dayOffset:  7, label: "7 days after due",   sublabel: "1st overdue nudge" },
+  { dayOffset: 14, label: "14 days after due",  sublabel: "2nd overdue nudge" },
+];
+
+function NotificationsTab() {
+  const settings = useQuery(api.reminders.getReminderSettings);
+  const updateSettings = useMutation(api.reminders.updateReminderSettings);
+
+  const [enabled, setEnabled] = useState<boolean | null>(null);
+  const [days, setDays] = useState<number[] | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  // Initialise local state from server once loaded
+  const resolvedEnabled = enabled ?? settings?.remindersEnabled ?? true;
+  const resolvedDays    = days    ?? settings?.reminderDays    ?? [-4, 7, 14];
+
+  function toggleDay(offset: number) {
+    const current = days ?? settings?.reminderDays ?? [-4, 7, 14];
+    setDays(
+      current.includes(offset)
+        ? current.filter((d) => d !== offset)
+        : [...current, offset]
+    );
+  }
+
+  async function handleSave() {
+    setSaving(true);
+    try {
+      await updateSettings({
+        remindersEnabled: resolvedEnabled,
+        reminderDays: resolvedDays,
+      });
+      toast.success("Notification preferences saved");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to save");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (settings === undefined) {
+    return (
+      <TabsContent value="notifications" className="space-y-6 mt-0">
+        <Skeleton className="h-48 w-full" />
+      </TabsContent>
+    );
+  }
+
+  return (
+    <TabsContent value="notifications" className="space-y-6 mt-0">
+      <Card>
+        <CardHeader>
+          <CardTitle>Invoice Reminder Emails</CardTitle>
+          <CardDescription>
+            Automatically email your clients when invoices are approaching or past their due date
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+
+          {/* Enable / disable toggle */}
+          <div className="flex items-center justify-between rounded-lg border p-4">
+            <div className="flex items-center gap-3">
+              {resolvedEnabled
+                ? <Bell size={18} className="text-primary shrink-0" />
+                : <BellOff size={18} className="text-muted-foreground shrink-0" />
+              }
+              <div>
+                <p className="text-sm font-medium">Reminder emails</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {resolvedEnabled ? "Reminders are active" : "Reminders are paused"}
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={resolvedEnabled}
+              onClick={() => setEnabled(!resolvedEnabled)}
+              className={cn(
+                "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                resolvedEnabled ? "bg-primary" : "bg-muted"
+              )}
+            >
+              <span
+                className={cn(
+                  "pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-lg ring-0 transition-transform",
+                  resolvedEnabled ? "translate-x-5" : "translate-x-0"
+                )}
+              />
+            </button>
+          </div>
+
+          {/* Interval selection */}
+          <div className={cn("space-y-3 transition-opacity", !resolvedEnabled && "opacity-40 pointer-events-none")}>
+            <Label>Reminder schedule</Label>
+            <p className="text-xs text-muted-foreground -mt-1">
+              Choose when reminders are sent relative to the invoice due date
+            </p>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+              {REMINDER_OPTIONS.map(({ dayOffset, label, sublabel }) => {
+                const active = resolvedDays.includes(dayOffset);
+                return (
+                  <button
+                    key={dayOffset}
+                    type="button"
+                    onClick={() => toggleDay(dayOffset)}
+                    className={cn(
+                      "flex flex-col items-start gap-1 rounded-md border px-4 py-3 text-sm font-medium transition-colors text-left",
+                      active
+                        ? "border-primary bg-primary/5 text-primary"
+                        : "border-input text-muted-foreground hover:bg-muted/50"
+                    )}
+                  >
+                    <span className="font-semibold text-[13px]">{label}</span>
+                    <span className={cn("text-xs font-normal", active ? "text-primary/70" : "text-muted-foreground/70")}>
+                      {sublabel}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            {resolvedEnabled && resolvedDays.length === 0 && (
+              <p className="text-xs text-destructive">Select at least one reminder interval.</p>
+            )}
+          </div>
+
+          <Separator />
+
+          <div className="rounded-md bg-muted/50 border px-4 py-3 text-sm text-muted-foreground">
+            Reminder emails are sent directly to your client&apos;s email address on file and include the
+            invoice number, outstanding balance, due date, and a payment link.
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="flex justify-end">
+        <Button
+          type="button"
+          onClick={handleSave}
+          disabled={saving || (resolvedEnabled && resolvedDays.length === 0)}
+        >
+          {saving ? "Saving…" : "Save Changes"}
+        </Button>
+      </div>
+    </TabsContent>
+  );
+}
+
+// ─── Main settings form ───────────────────────────────────────────────────────
 
 function SettingsForm({ profile, isOnboarding = false }: { profile: Profile; isOnboarding?: boolean }) {
   const updateProfile = useMutation(api.users.createOrUpdateProfile);
@@ -240,6 +394,7 @@ function SettingsForm({ profile, isOnboarding = false }: { profile: Profile; isO
           <TabsTrigger value="banking">Banking Details</TabsTrigger>
           <TabsTrigger value="branding">Brand & Style</TabsTrigger>
           <TabsTrigger value="preferences">Preferences</TabsTrigger>
+          <TabsTrigger value="notifications">Notifications</TabsTrigger>
           <TabsTrigger value="plan">Plan & Billing</TabsTrigger>
         </TabsList>
 
@@ -408,6 +563,9 @@ function SettingsForm({ profile, isOnboarding = false }: { profile: Profile; isO
             <Button type="submit" disabled={loading}>{loading ? "Saving…" : "Save Changes"}</Button>
           </div>
         </TabsContent>
+
+        {/* ── Notifications ── */}
+        <NotificationsTab />
 
         {/* ── Plan & Billing ── */}
         <TabsContent value="plan" className="space-y-6 mt-0">

@@ -9,4 +9,13 @@ crons.daily(
   internal.invoices.checkAndMarkOverdue
 );
 
+// Runs 1 hour after overdue-marking so newly-overdue invoices are already
+// flagged before we send the after_0 / after_7 / after_14 reminders.
+crons.cron(
+  "send invoice reminders",
+  "0 8 * * *",
+  internal.reminders.processReminderEmails,
+  {}
+);
+
 export default crons;

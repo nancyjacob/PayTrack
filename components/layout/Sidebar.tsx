@@ -17,7 +17,7 @@ import {
 import { LogoMark } from "@/components/logo";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
-import { useAuthActions } from "@convex-dev/auth/react";
+import { CUSTOMER_SESSION_KEY } from "@/components/AuthGuard";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -31,11 +31,11 @@ const navItems = [
 export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
-  const { signOut } = useAuthActions();
   const [collapsed, setCollapsed] = useState(false);
-  async function handleSignOut() {
-    await signOut();
-    router.replace("/");
+
+  function handleSignOut() {
+    localStorage.removeItem(CUSTOMER_SESSION_KEY);
+    router.replace("/sign-in");
   }
 
   return (

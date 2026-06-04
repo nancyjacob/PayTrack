@@ -1,7 +1,7 @@
 "use client";
 
-import { useAuthActions } from "@convex-dev/auth/react";
 import { useQuery } from "convex/react";
+import { CUSTOMER_SESSION_KEY } from "@/components/AuthGuard";
 import { api } from "@/convex/_generated/api";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
@@ -32,7 +32,6 @@ function getPageTitle(pathname: string): string {
 }
 
 export function Topbar() {
-  const { signOut } = useAuthActions();
   const profile = useQuery(api.users.getMyProfile);
   const router = useRouter();
   const pathname = usePathname();
@@ -46,9 +45,9 @@ export function Topbar() {
         .slice(0, 2)
     : "PT";
 
-  async function handleSignOut() {
-    await signOut();
-    router.replace("/");
+  function handleSignOut() {
+    localStorage.removeItem(CUSTOMER_SESSION_KEY);
+    router.replace("/sign-in");
   }
 
   return (
