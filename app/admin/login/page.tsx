@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useAuthActions } from "@convex-dev/auth/react";
-import { useQuery } from "convex/react";
+import { useQuery, useConvexAuth } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
@@ -17,35 +17,38 @@ export const ADMIN_SESSION_KEY = "adminSession";
 export default function AdminLoginPage() {
   const { signIn } = useAuthActions();
   const isAdmin = useQuery(api.admin.isAdmin);
+  const { isAuthenticated, isLoading } = useConvexAuth();
   const router = useRouter();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  // Set to true after signIn resolves — waits for isAdmin query to catch up
+  // Only set to true after the user explicitly submits the login form.
   const [waitingForAdmin, setWaitingForAdmin] = useState(false);
 
-  // Redirect whenever Convex confirms admin status — covers both "already logged in"
-  // and "just signed in" cases. Never redirects on stale localStorage alone.
-  useEffect(() => {
-    if (isAdmin !== true) return;
-    localStorage.setItem(ADMIN_SESSION_KEY, "1");
-    router.replace("/admin");
-  }, [isAdmin, router]);
-
-  // After signIn resolves, handle the non-admin error case.
+  // Single effect that handles both redirect and error — but only after
+  // the user explicitly signed in (waitingForAdmin) and auth has fully settled.
+  // Guarding on isAuthenticated prevents firing against stale isAdmin=false values
+  // that appear during the session transition (sign-out-then-sign-in cycle),
+  // which caused the spurious "no admin privileges" toast and blocked Issue 2 logins.
+  // Not running unless waitingForAdmin fixes Issue 3: visiting /admin/login while
+  // already authenticated as an admin no longer auto-grants admin access.
   useEffect(() => {
     if (!waitingForAdmin) return;
-    if (isAdmin === undefined) return; // still resolving
+    if (isLoading) return;
+    if (!isAuthenticated) return;   // auth is still transitioning — wait
+    if (isAdmin === undefined) return; // isAdmin query still loading
 
-    if (isAdmin !== true) {
+    if (isAdmin === true) {
+      localStorage.setItem(ADMIN_SESSION_KEY, "1");
+      router.replace("/admin");
+    } else {
       toast.error("This account does not have admin privileges.");
       setWaitingForAdmin(false);
       setLoading(false);
     }
-    // isAdmin === true: the effect above handles redirect
-  }, [isAdmin, waitingForAdmin]);
+  }, [isAdmin, isAuthenticated, isLoading, router, waitingForAdmin]);
 
   async function handleSignIn(e: React.FormEvent) {
     e.preventDefault();

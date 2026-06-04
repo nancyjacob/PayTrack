@@ -162,22 +162,6 @@ function AcceptInviteContent() {
     );
   }
 
-  if (invitation.isExpired) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-muted/20">
-        <Card className="w-full max-w-sm text-center">
-          <CardContent className="pt-8 pb-8 space-y-3">
-            <XCircle size={36} className="mx-auto text-amber-500/60" />
-            <p className="font-semibold">Invitation Expired</p>
-            <p className="text-sm text-muted-foreground">
-              This invitation has expired or been revoked. Ask a Super Admin to send a new one.
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
   if (accepted) {
     const info = roleInfo(invitation.role);
     return (
@@ -188,6 +172,22 @@ function AcceptInviteContent() {
             <p className="font-semibold">Invitation Accepted!</p>
             <p className="text-sm text-muted-foreground">
               You now have <strong>{info.label}</strong> access. Redirecting to the admin panel…
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (invitation.isExpired) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-muted/20">
+        <Card className="w-full max-w-sm text-center">
+          <CardContent className="pt-8 pb-8 space-y-3">
+            <XCircle size={36} className="mx-auto text-amber-500/60" />
+            <p className="font-semibold">Invitation Expired</p>
+            <p className="text-sm text-muted-foreground">
+              This invitation has expired or been revoked. Ask a Super Admin to send a new one.
             </p>
           </CardContent>
         </Card>

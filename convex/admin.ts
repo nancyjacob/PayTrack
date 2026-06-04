@@ -255,7 +255,36 @@ export const deleteUser = mutation({
       await ctx.storage.delete(profile.logoStorageId);
     }
 
+    // Delete auth records so sign-in with the same credentials returns
+    // "Invalid credentials" instead of landing on the registration page.
+    const accounts = await ctx.db
+      .query("authAccounts")
+      .withIndex("userIdAndProvider", (q) => q.eq("userId", profile.userId))
+      .collect();
+    for (const account of accounts) {
+      const codes = await ctx.db
+        .query("authVerificationCodes")
+        .withIndex("accountId", (q) => q.eq("accountId", account._id))
+        .collect();
+      for (const code of codes) await ctx.db.delete(code._id);
+      await ctx.db.delete(account._id);
+    }
+
+    const sessions = await ctx.db
+      .query("authSessions")
+      .withIndex("userId", (q) => q.eq("userId", profile.userId))
+      .collect();
+    for (const session of sessions) {
+      const tokens = await ctx.db
+        .query("authRefreshTokens")
+        .withIndex("sessionId", (q) => q.eq("sessionId", session._id))
+        .collect();
+      for (const token of tokens) await ctx.db.delete(token._id);
+      await ctx.db.delete(session._id);
+    }
+
     await ctx.db.delete(profileId);
+    await ctx.db.delete(profile.userId);
   },
 });
 
