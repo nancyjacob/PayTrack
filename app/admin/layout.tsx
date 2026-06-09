@@ -23,6 +23,8 @@ import {
   Lock,
   Shield,
 } from "lucide-react";
+import { useAuthActions } from "@convex-dev/auth/react";
+import { clearPortalSession } from "@/lib/portal-session";
 import { cn } from "@/lib/utils";
 import { Loader2, Crown, Headphones } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -174,9 +176,18 @@ function NavGroupItem({ item }: { item: NavItem }) {
 function AdminSidebar({ navItems }: { navItems: NavItem[] }) {
   const pathname = usePathname();
   const router = useRouter();
+  const { signOut } = useAuthActions();
 
-  function handleSignOut() {
+  async function handleSignOut() {
+    clearPortalSession();
     localStorage.removeItem("adminSession");
+    // Only terminate the Convex session if the customer portal is NOT also active.
+    // If a customer session exists, it shares the same Convex token and must
+    // remain intact so the customer portal stays logged in.
+    const customerSessionActive = localStorage.getItem("customerSession") === "1";
+    if (!customerSessionActive) {
+      await signOut();
+    }
     router.replace("/admin/login");
   }
 
@@ -217,13 +228,6 @@ function AdminSidebar({ navItems }: { navItems: NavItem[] }) {
       </nav>
 
       <div className="border-t border-border p-2 space-y-0.5">
-        <Link
-          href="/dashboard"
-          className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
-        >
-          <ChevronRight size={16} className="rotate-180 shrink-0" />
-          Back to App
-        </Link>
         <button
           onClick={handleSignOut}
           className="w-full flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-sidebar-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
@@ -295,6 +299,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   useEffect(() => {
     setAdminSession(localStorage.getItem("adminSession") === "1");
+
+    // React to flag changes made in other tabs (e.g., user login clears this flag).
+    function onStorage(e: StorageEvent) {
+      if (e.key === "adminSession") {
+        setAdminSession(e.newValue === "1");
+      }
+    }
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
   }, []);
 
   useEffect(() => {

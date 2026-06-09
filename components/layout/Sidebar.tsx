@@ -18,6 +18,8 @@ import { LogoMark } from "@/components/logo";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { CUSTOMER_SESSION_KEY } from "@/components/AuthGuard";
+import { useAuthActions } from "@convex-dev/auth/react";
+import { clearPortalSession } from "@/lib/portal-session";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -32,9 +34,18 @@ export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
+  const { signOut } = useAuthActions();
 
-  function handleSignOut() {
+  async function handleSignOut() {
+    clearPortalSession();
     localStorage.removeItem(CUSTOMER_SESSION_KEY);
+    // Only terminate the Convex session if the admin portal is NOT also active.
+    // If an admin session exists, it shares the same Convex token, so we must
+    // leave it intact — the admin portal will stay logged in.
+    const adminSessionActive = localStorage.getItem("adminSession") === "1";
+    if (!adminSessionActive) {
+      await signOut();
+    }
     router.replace("/sign-in");
   }
 

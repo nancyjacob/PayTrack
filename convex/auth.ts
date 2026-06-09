@@ -14,10 +14,10 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
         const form = new URLSearchParams();
         form.set("from", `PayTrack <${fromEmail()}>`);
         form.set("to", email);
-        form.set("subject", "Your PayTrack sign-in code");
+        form.set("subject", "Your PayTrack password reset code");
         form.set(
           "html",
-          `<div style="font-family:sans-serif;max-width:480px;margin:0 auto"><h2>Sign in to PayTrack</h2><p>Your one-time code is:</p><p style="font-size:32px;font-weight:bold;letter-spacing:8px;color:#6366f1">${token}</p><p style="color:#6b7280;font-size:13px">This code expires in 15 minutes.</p></div>`
+          `<div style="font-family:sans-serif;max-width:480px;margin:0 auto"><h2>Reset your PayTrack password</h2><p>Use the code below to reset your password:</p><p style="font-size:32px;font-weight:bold;letter-spacing:8px;color:#6366f1">${token}</p><p style="color:#6b7280;font-size:13px">This code expires in 15 minutes. If you did not request a password reset, you can safely ignore this email.</p></div>`
         );
         const res = await fetch(`https://api.mailgun.net/v3/${domain}/messages`, {
           method: "POST",

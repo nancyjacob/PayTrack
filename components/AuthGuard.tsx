@@ -1,14 +1,17 @@
 "use client";
 
 import { useConvexAuth, useQuery } from "convex/react";
+import { useAuthActions } from "@convex-dev/auth/react";
 import { api } from "@/convex/_generated/api";
 import { useRouter, usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 
 export const CUSTOMER_SESSION_KEY = "customerSession";
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useConvexAuth();
+  const { signOut } = useAuthActions();
   const profile = useQuery(api.users.getMyProfile);
   const router = useRouter();
   const pathname = usePathname();
@@ -19,7 +22,26 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     setCustomerSession(localStorage.getItem(CUSTOMER_SESSION_KEY) === "1");
+
+    // React to flag changes made in other tabs (e.g., admin login clears this flag).
+    function onStorage(e: StorageEvent) {
+      if (e.key === CUSTOMER_SESSION_KEY) {
+        setCustomerSession(e.newValue === "1");
+      }
+    }
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
   }, []);
+
+  // Deleted accounts: sign out immediately and redirect to sign-in.
+  useEffect(() => {
+    if (!profile || !(profile as typeof profile & { isDeleted?: boolean }).isDeleted) return;
+    localStorage.removeItem(CUSTOMER_SESSION_KEY);
+    signOut().then(() => {
+      toast.error("This account has been deleted.");
+      router.replace("/sign-in");
+    });
+  }, [profile, signOut, router]);
 
   useEffect(() => {
     if (isLoading) return;
@@ -44,6 +66,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   }
 
   if (!isAuthenticated || !customerSession) return null;
+  if ((profile as typeof profile & { isDeleted?: boolean })?.isDeleted) return null;
 
   return <>{children}</>;
 }

@@ -34,6 +34,7 @@ export default defineSchema({
     platformFeeOwed: v.optional(v.number()),
     remindersEnabled: v.optional(v.boolean()),
     reminderDays: v.optional(v.array(v.number())),
+    isDeleted: v.optional(v.boolean()),
   })
     .index("by_userId", ["userId"])
     .index("by_email", ["email"]),

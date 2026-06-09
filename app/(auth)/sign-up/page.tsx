@@ -8,6 +8,8 @@ import { Eye, EyeOff } from "lucide-react";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useRouter } from "next/navigation";
 import { CUSTOMER_SESSION_KEY } from "@/components/AuthGuard";
+import { ADMIN_SESSION_KEY } from "@/app/admin/login/page";
+import { setPortalSession, clearPortalSession } from "@/lib/portal-session";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -44,7 +46,7 @@ const signUpSchema = z
 type SignUpValues = z.infer<typeof signUpSchema>;
 
 export default function SignUpPage() {
-  const { signIn } = useAuthActions();
+  const { signIn, signOut } = useAuthActions();
   const router = useRouter();
 
   const [showPassword, setShowPassword] = useState(false);
@@ -56,12 +58,18 @@ export default function SignUpPage() {
   });
 
   async function handleSignUp(values: SignUpValues) {
+    // Wipe both portal flags immediately — admin side is locked the instant sign-up starts.
+    clearPortalSession();
+    localStorage.removeItem(ADMIN_SESSION_KEY);
+    localStorage.removeItem(CUSTOMER_SESSION_KEY);
     try {
+      await signOut(); // terminate any existing Convex session
       await signIn("password", {
         email: values.email,
         password: values.password,
         flow: "signUp",
       });
+      setPortalSession("user");
       localStorage.setItem(CUSTOMER_SESSION_KEY, "1");
       router.replace("/settings");
     } catch (err) {

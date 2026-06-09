@@ -4,19 +4,23 @@ import { useState, useEffect } from "react";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useQuery, useConvexAuth } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import { CUSTOMER_SESSION_KEY } from "@/components/AuthGuard";
 import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { ShieldCheck, Eye, EyeOff, Loader2 } from "lucide-react";
+import Link from "next/link";
 import { toast } from "sonner";
+import { setPortalSession, clearPortalSession } from "@/lib/portal-session";
 
 export const ADMIN_SESSION_KEY = "adminSession";
 
 export default function AdminLoginPage() {
-  const { signIn } = useAuthActions();
+  const { signIn, signOut } = useAuthActions();
   const isAdmin = useQuery(api.admin.isAdmin);
+  const currentProfile = useQuery(api.users.getMyProfile);
   const { isAuthenticated, isLoading } = useConvexAuth();
   const router = useRouter();
 
@@ -38,11 +42,12 @@ export default function AdminLoginPage() {
     if (!waitingForAdmin) return;
     if (isLoading) return;
     if (!isAuthenticated) return;   // auth is still transitioning — wait
-    if (isAdmin === undefined) return; // isAdmin query still loading
+    if (isAdmin === undefined || isAdmin === null) return; // query still loading or pre-auth state
 
     if (isAdmin === true) {
+      setPortalSession("admin");
       localStorage.setItem(ADMIN_SESSION_KEY, "1");
-      router.replace("/admin");
+      window.location.href = "/admin";
     } else {
       toast.error("This account does not have admin privileges.");
       setWaitingForAdmin(false);
@@ -53,11 +58,33 @@ export default function AdminLoginPage() {
   async function handleSignIn(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
+
+    // Only sign out + clear the customer portal flag when switching to a
+    // different user.  If the same user is already authenticated (e.g., they
+    // also have a customer session open), skip signOut so their customer
+    // session stays alive.
+    const currentEmail = currentProfile?.email?.toLowerCase();
+    const newEmail = email.toLowerCase();
+    const isSwitchingUsers =
+      isAuthenticated && !!currentEmail && currentEmail !== newEmail;
+
+    clearPortalSession();
+    localStorage.removeItem(ADMIN_SESSION_KEY);
+
+    if (isSwitchingUsers) {
+      localStorage.removeItem(CUSTOMER_SESSION_KEY);
+      await signOut();
+    }
+
     try {
       await signIn("password", { email, password, flow: "signIn" });
       setWaitingForAdmin(true);
-    } catch {
-      toast.error("Invalid email or password");
+    } catch (err) {
+      console.error("[admin login]", err);
+      const msg = err instanceof Error ? err.message : "Sign in failed";
+      toast.error(msg.includes("Invalid") || msg.includes("credentials") || msg.includes("password")
+        ? "Invalid email or password"
+        : msg);
       setLoading(false);
     }
   }
@@ -123,16 +150,19 @@ export default function AdminLoginPage() {
                   "Sign In to Admin"
                 )}
               </Button>
+
+              <div className="text-center">
+                <Link
+                  href="/forgot-password?returnTo=%2Fadmin%2Flogin"
+                  className="text-sm text-muted-foreground hover:text-foreground underline-offset-4 hover:underline"
+                >
+                  Forgot password?
+                </Link>
+              </div>
             </form>
           </CardContent>
         </Card>
 
-        <p className="text-center text-xs text-muted-foreground">
-          Not an admin?{" "}
-          <a href="/dashboard" className="underline underline-offset-4 hover:text-foreground">
-            Go to app
-          </a>
-        </p>
       </div>
     </div>
   );

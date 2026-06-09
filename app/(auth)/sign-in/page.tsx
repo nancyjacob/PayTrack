@@ -5,9 +5,11 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useAuthActions } from "@convex-dev/auth/react";
+import { useConvexAuth, useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
 import { useRouter } from "next/navigation";
 import { CUSTOMER_SESSION_KEY } from "@/components/AuthGuard";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { setPortalSession, clearPortalSession } from "@/lib/portal-session";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -29,81 +31,58 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { Eye, EyeOff } from "lucide-react";
 
-const passwordSchema = z.object({
+const schema = z.object({
   email: z.string().email("Enter a valid email address"),
   password: z.string().min(1, "Password is required"),
 });
 
-const otpEmailSchema = z.object({
-  email: z.string().email("Enter a valid email address"),
-});
-
-const otpCodeSchema = z.object({
-  code: z
-    .string()
-    .length(6, "Code must be 6 digits")
-    .regex(/^\d+$/, "Code must be numeric"),
-});
-
-type PasswordValues = z.infer<typeof passwordSchema>;
-type OtpEmailValues = z.infer<typeof otpEmailSchema>;
-type OtpCodeValues = z.infer<typeof otpCodeSchema>;
+type FormValues = z.infer<typeof schema>;
 
 export default function SignInPage() {
-  const { signIn } = useAuthActions();
+  const { signIn, signOut } = useAuthActions();
+  const { isAuthenticated } = useConvexAuth();
+  const currentProfile = useQuery(api.users.getMyProfile);
   const router = useRouter();
-
-  const [otpEmail, setOtpEmail] = useState("");
-  const [otpStep, setOtpStep] = useState<"email" | "code">("email");
   const [showPassword, setShowPassword] = useState(false);
 
-  const passwordForm = useForm<PasswordValues>({
-    resolver: zodResolver(passwordSchema),
+  const form = useForm<FormValues>({
+    resolver: zodResolver(schema),
     defaultValues: { email: "", password: "" },
   });
 
-  const otpEmailForm = useForm<OtpEmailValues>({
-    resolver: zodResolver(otpEmailSchema),
-    defaultValues: { email: "" },
-  });
+  async function handleSignIn(values: FormValues) {
+    // Determine whether this is a user-switch or a same-user re-authentication.
+    // Only sign out + wipe the OTHER portal's flag when switching users,
+    // so an active admin session is preserved when the same user authenticates.
+    const currentEmail = currentProfile?.email?.toLowerCase();
+    const newEmail = values.email.toLowerCase();
+    const isSwitchingUsers =
+      isAuthenticated && !!currentEmail && currentEmail !== newEmail;
 
-  const otpCodeForm = useForm<OtpCodeValues>({
-    resolver: zodResolver(otpCodeSchema),
-    defaultValues: { code: "" },
-  });
+    clearPortalSession();
+    localStorage.removeItem(CUSTOMER_SESSION_KEY);
 
-  async function handlePasswordSignIn(values: PasswordValues) {
+    if (isSwitchingUsers) {
+      // User switch: must terminate the existing session and clear all portal flags.
+      localStorage.removeItem("adminSession");
+      await signOut();
+    }
+
     try {
       await signIn("password", {
         email: values.email,
         password: values.password,
         flow: "signIn",
       });
+      setPortalSession("user");
       localStorage.setItem(CUSTOMER_SESSION_KEY, "1");
-      router.replace("/dashboard");
-    } catch {
-      toast.error("Invalid email or password");
-    }
-  }
-
-  async function handleOtpSend(values: OtpEmailValues) {
-    try {
-      await signIn("email", { email: values.email });
-      setOtpEmail(values.email);
-      setOtpStep("code");
-      toast.success("Check your email for a 6-digit code");
-    } catch {
-      toast.error("Failed to send code. Check your email address.");
-    }
-  }
-
-  async function handleOtpVerify(values: OtpCodeValues) {
-    try {
-      await signIn("email", { email: otpEmail, code: values.code });
-      localStorage.setItem(CUSTOMER_SESSION_KEY, "1");
-      router.replace("/dashboard");
-    } catch {
-      toast.error("Invalid or expired code");
+      window.location.href = "/dashboard";
+    } catch (err) {
+      console.error("[sign-in]", err);
+      const msg = err instanceof Error ? err.message : "Sign in failed";
+      toast.error(msg.includes("Invalid") || msg.includes("credentials") || msg.includes("password")
+        ? "Invalid email or password"
+        : msg);
     }
   }
 
@@ -114,180 +93,66 @@ export default function SignInPage() {
         <CardDescription>Sign in to your PayTrack account</CardDescription>
       </CardHeader>
       <CardContent>
-        <Tabs defaultValue="password">
-          <TabsList className="mb-6 w-full">
-            <TabsTrigger value="password" className="flex-1">
-              Password
-            </TabsTrigger>
-            <TabsTrigger value="otp" className="flex-1">
-              Magic Link
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="password">
-            <Form {...passwordForm}>
-              <form
-                onSubmit={passwordForm.handleSubmit(handlePasswordSignIn)}
-                className="space-y-4"
-              >
-                <FormField
-                  control={passwordForm.control}
-                  name="email"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Email</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="email"
-                          placeholder="you@example.com"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={passwordForm.control}
-                  name="password"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Password</FormLabel>
-                      <FormControl>
-                        <div className="relative">
-                          <Input
-                            type={showPassword ? "text" : "password"}
-                            placeholder="••••••••"
-                            className="pr-10"
-                            {...field}
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setShowPassword((v) => !v)}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                            aria-label={
-                              showPassword ? "Hide password" : "Show password"
-                            }
-                          >
-                            {showPassword ? (
-                              <EyeOff size={16} />
-                            ) : (
-                              <Eye size={16} />
-                            )}
-                          </button>
-                        </div>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <Button
-                  type="submit"
-                  className="w-full"
-                  disabled={passwordForm.formState.isSubmitting}
-                >
-                  {passwordForm.formState.isSubmitting
-                    ? "Signing in…"
-                    : "Sign In"}
-                </Button>
-              </form>
-            </Form>
-          </TabsContent>
-
-          <TabsContent value="otp">
-            {otpStep === "email" ? (
-              <Form {...otpEmailForm}>
-                <form
-                  onSubmit={otpEmailForm.handleSubmit(handleOtpSend)}
-                  className="space-y-4"
-                >
-                  <FormField
-                    control={otpEmailForm.control}
-                    name="email"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Email</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="email"
-                            placeholder="you@example.com"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <Button
-                    type="submit"
-                    className="w-full"
-                    disabled={otpEmailForm.formState.isSubmitting}
-                  >
-                    {otpEmailForm.formState.isSubmitting
-                      ? "Sending…"
-                      : "Send Code"}
-                  </Button>
-                </form>
-              </Form>
-            ) : (
-              <Form {...otpCodeForm}>
-                <form
-                  onSubmit={otpCodeForm.handleSubmit(handleOtpVerify)}
-                  className="space-y-4"
-                >
-                  <p className="text-sm text-muted-foreground">
-                    Enter the 6-digit code sent to{" "}
-                    <strong>{otpEmail}</strong>
-                  </p>
-                  <FormField
-                    control={otpCodeForm.control}
-                    name="code"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Code</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="text"
-                            inputMode="numeric"
-                            maxLength={6}
-                            placeholder="000000"
-                            {...field}
-                            onChange={(e) =>
-                              field.onChange(
-                                e.target.value.replace(/\D/g, ""),
-                              )
-                            }
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <Button
-                    type="submit"
-                    className="w-full"
-                    disabled={otpCodeForm.formState.isSubmitting}
-                  >
-                    {otpCodeForm.formState.isSubmitting
-                      ? "Verifying…"
-                      : "Verify Code"}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    className="w-full"
-                    onClick={() => {
-                      setOtpStep("email");
-                      otpCodeForm.reset();
-                    }}
-                  >
-                    ← Back
-                  </Button>
-                </form>
-              </Form>
-            )}
-          </TabsContent>
-        </Tabs>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(handleSignIn)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="email"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Email</FormLabel>
+                  <FormControl>
+                    <Input type="email" placeholder="you@example.com" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="password"
+              render={({ field }) => (
+                <FormItem>
+                  <div className="flex items-center justify-between">
+                    <FormLabel>Password</FormLabel>
+                    <Link
+                      href="/forgot-password"
+                      className="text-xs text-muted-foreground hover:text-primary underline-offset-4 hover:underline"
+                    >
+                      Forgot password?
+                    </Link>
+                  </div>
+                  <FormControl>
+                    <div className="relative">
+                      <Input
+                        type={showPassword ? "text" : "password"}
+                        placeholder="••••••••"
+                        className="pr-10"
+                        {...field}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword((v) => !v)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                        aria-label={showPassword ? "Hide password" : "Show password"}
+                      >
+                        {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
+                    </div>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={form.formState.isSubmitting}
+            >
+              {form.formState.isSubmitting ? "Signing in…" : "Sign In"}
+            </Button>
+          </form>
+        </Form>
 
         <p className="mt-6 text-center text-sm text-muted-foreground">
           No account?{" "}

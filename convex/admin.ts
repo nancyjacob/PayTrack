@@ -39,7 +39,9 @@ export const isAdmin = query({
   args: {},
   handler: async (ctx) => {
     const userId = await getAuthUserId(ctx);
-    if (!userId) return false;
+    // Return null (not false) when unauthenticated so callers can distinguish
+    // "not authenticated yet" from "authenticated but not an admin".
+    if (!userId) return null;
     const profile = await ctx.db
       .query("userProfiles")
       .withIndex("by_userId", (q) => q.eq("userId", userId))
@@ -255,8 +257,8 @@ export const deleteUser = mutation({
       await ctx.storage.delete(profile.logoStorageId);
     }
 
-    // Delete auth records so sign-in with the same credentials returns
-    // "Invalid credentials" instead of landing on the registration page.
+    // Hard-delete all auth records so future sign-in attempts fail with
+    // "Invalid credentials" rather than landing on the profile-completion page.
     const accounts = await ctx.db
       .query("authAccounts")
       .withIndex("userIdAndProvider", (q) => q.eq("userId", profile.userId))
@@ -283,8 +285,12 @@ export const deleteUser = mutation({
       await ctx.db.delete(session._id);
     }
 
-    await ctx.db.delete(profileId);
     await ctx.db.delete(profile.userId);
+
+    // Soft-delete the profile as a belt-and-suspenders guard: if auth records
+    // were not purged cleanly, AuthGuard will detect isDeleted and sign the
+    // user out rather than letting them reach the dashboard.
+    await ctx.db.patch(profileId, { isDeleted: true });
   },
 });
 
