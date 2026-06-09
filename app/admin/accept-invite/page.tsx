@@ -28,6 +28,7 @@ import {
   EyeOff,
 } from "lucide-react";
 import { toast } from "sonner";
+import { setPortalSession } from "@/lib/portal-session";
 
 function roleInfo(role: string) {
   if (role === "super_admin")
@@ -66,6 +67,7 @@ function AcceptInviteContent() {
     pendingAccept.current = false;
     acceptInvitation({ token })
       .then((result) => {
+        setPortalSession("admin");
         localStorage.setItem("adminSession", "1");
         setAccepted(true);
         toast.success(`Welcome! You now have ${roleInfo(result.role).label} access.`);
@@ -81,6 +83,7 @@ function AcceptInviteContent() {
     setAccepting(true);
     try {
       const result = await acceptInvitation({ token });
+      setPortalSession("admin");
       localStorage.setItem("adminSession", "1");
       setAccepted(true);
       toast.success(`Welcome! You now have ${roleInfo(result.role).label} access.`);
