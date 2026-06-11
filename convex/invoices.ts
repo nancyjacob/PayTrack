@@ -555,7 +555,7 @@ export const sendInvoiceEmail = internalAction({
   args: { invoiceId: v.id("invoices") },
   handler: async (ctx, { invoiceId }) => {
     const invoice = await ctx.runQuery(api.invoices.getInvoiceById, { invoiceId });
-    if (!invoice || !invoice.client) return;
+    if (!invoice || !invoice.client || !invoice.client.email) return;
 
     const currency = invoice.currency ?? "NGN";
     const locale = currency === "USD" ? "en-US" : currency === "GBP" ? "en-GB" : "en-NG";

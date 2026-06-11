@@ -35,7 +35,7 @@ export default function InvoicesPage() {
       (inv: Inv) =>
         inv.invoiceNumber.toLowerCase().includes(q) ||
         inv.client?.name.toLowerCase().includes(q) ||
-        inv.client?.email.toLowerCase().includes(q)
+        inv.client?.email?.toLowerCase().includes(q)
     );
   }, [invoices, search]);
 

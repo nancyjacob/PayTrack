@@ -23,7 +23,7 @@ type Invoice = {
   dueDate: number;
   issueDate: number;
   sentAt?: number;
-  client?: { name: string; email: string } | null;
+  client?: { name: string; email?: string } | null;
 };
 
 interface Props {

@@ -111,7 +111,7 @@ type InvoiceData = {
     unitPrice: number;
     total: number;
   }>;
-  client?: { name: string; email: string; address?: string } | null;
+  client?: { name: string; email?: string; address?: string } | null;
   profile?: {
     businessName: string;
     ownerName: string;

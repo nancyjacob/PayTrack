@@ -31,6 +31,11 @@ export default function PayPage() {
   function handlePayNow() {
     if (!invoice || !invoice.client) return;
 
+    if (!invoice.client.email) {
+      toast.error("No email address on file for this client. Please contact the business directly.");
+      return;
+    }
+
     if (!window.PaystackPop) {
       toast.error("Payment system not loaded. Please refresh and try again.");
       return;

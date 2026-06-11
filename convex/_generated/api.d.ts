@@ -16,6 +16,7 @@ import type * as billing from "../billing.js";
 import type * as clients from "../clients.js";
 import type * as crons from "../crons.js";
 import type * as emailActions from "../emailActions.js";
+import type * as emailVerification from "../emailVerification.js";
 import type * as http from "../http.js";
 import type * as invoices from "../invoices.js";
 import type * as lib_email from "../lib/email.js";
@@ -42,6 +43,7 @@ declare const fullApi: ApiFromModules<{
   clients: typeof clients;
   crons: typeof crons;
   emailActions: typeof emailActions;
+  emailVerification: typeof emailVerification;
   http: typeof http;
   invoices: typeof invoices;
   "lib/email": typeof lib_email;
