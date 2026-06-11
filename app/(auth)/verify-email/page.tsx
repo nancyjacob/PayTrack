@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useAction, useQuery } from "convex/react";
-import { api } from "@/convex/_generated/api";
+import { makeFunctionReference } from "convex/server";
 import { useRouter } from "next/navigation";
 import {
   Card,
@@ -18,11 +18,21 @@ import { MailCheck, RefreshCw } from "lucide-react";
 
 const OTP_LENGTH = 6;
 
+const getVerificationStatus = makeFunctionReference<"query">(
+  "emailVerification:getVerificationStatus"
+);
+const verifyEmailToken = makeFunctionReference<"mutation">(
+  "emailVerification:verifyEmailToken"
+);
+const resendVerification = makeFunctionReference<"action">(
+  "emailVerification:resendVerification"
+);
+
 export default function VerifyEmailPage() {
   const router = useRouter();
-  const status = useQuery(api.emailVerification.getVerificationStatus);
-  const verifyToken = useMutation(api.emailVerification.verifyEmailToken);
-  const resend = useAction(api.emailVerification.resendVerification);
+  const status = useQuery(getVerificationStatus);
+  const verifyToken = useMutation(verifyEmailToken);
+  const resend = useAction(resendVerification);
 
   const [digits, setDigits] = useState<string[]>(Array(OTP_LENGTH).fill(""));
   const [submitting, setSubmitting] = useState(false);
