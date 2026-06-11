@@ -71,7 +71,7 @@ export default function SignUpPage() {
       });
       setPortalSession("user");
       localStorage.setItem(CUSTOMER_SESSION_KEY, "1");
-      router.replace("/settings");
+      router.replace("/verify-email");
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Registration failed";
       toast.error(

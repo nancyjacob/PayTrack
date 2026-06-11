@@ -25,7 +25,7 @@ import { toast } from "sonner";
 type Client = {
   _id: Id<"clients">;
   name: string;
-  email: string;
+  email?: string;
   phone?: string;
   createdAt: number;
 };
@@ -46,11 +46,15 @@ export default function ClientsPage() {
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
+    if (!email && !phone) {
+      toast.error("Please provide at least an email or phone number.");
+      return;
+    }
     setSubmitting(true);
     try {
       await createClient({
         name,
-        email,
+        email: email || undefined,
         phone: phone || undefined,
         address: address || undefined,
       });
@@ -60,8 +64,8 @@ export default function ClientsPage() {
       setEmail("");
       setPhone("");
       setAddress("");
-    } catch {
-      toast.error("Failed to add client");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to add client");
     } finally {
       setSubmitting(false);
     }
@@ -98,7 +102,7 @@ export default function ClientsPage() {
           <SortableHeader column={column}>Email</SortableHeader>
         ),
         cell: ({ row }) => (
-          <span className="text-muted-foreground text-sm">{row.original.email}</span>
+          <span className="text-muted-foreground text-sm">{row.original.email ?? "—"}</span>
         ),
       },
       {
@@ -181,19 +185,21 @@ export default function ClientsPage() {
                   required
                 />
               </div>
+              <p className="text-xs text-muted-foreground -mt-1">
+                Provide at least an email or phone number.
+              </p>
               <div className="space-y-2">
-                <Label htmlFor="c-email">Email</Label>
+                <Label htmlFor="c-email">Email <span className="text-muted-foreground font-normal">(optional)</span></Label>
                 <Input
                   id="c-email"
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="billing@acme.com"
-                  required
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="c-phone">Phone (optional)</Label>
+                <Label htmlFor="c-phone">Phone <span className="text-muted-foreground font-normal">(optional)</span></Label>
                 <Input
                   id="c-phone"
                   value={phone}

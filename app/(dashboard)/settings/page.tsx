@@ -2,7 +2,7 @@
 
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { useRef, useState } from "react";
+import { Component, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -118,6 +118,37 @@ function getDominantColor(src: string): Promise<string> {
     img.onerror = () => resolve("#4f46e5");
     img.src = src;
   });
+}
+
+// ─── Error boundary for the notifications tab ────────────────────────────────
+
+class NotificationsErrorBoundary extends Component<
+  { children: ReactNode },
+  { hasError: boolean }
+> {
+  constructor(props: { children: ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <TabsContent value="notifications" className="space-y-6 mt-0">
+          <Card>
+            <CardContent className="py-8 text-center text-sm text-muted-foreground">
+              Notification settings are temporarily unavailable. Please refresh the page.
+            </CardContent>
+          </Card>
+        </TabsContent>
+      );
+    }
+    return this.props.children;
+  }
 }
 
 // ─── Reminder interval options ────────────────────────────────────────────────
@@ -565,7 +596,9 @@ function SettingsForm({ profile, isOnboarding = false }: { profile: Profile; isO
         </TabsContent>
 
         {/* ── Notifications ── */}
-        <NotificationsTab />
+        <NotificationsErrorBoundary>
+          <NotificationsTab />
+        </NotificationsErrorBoundary>
 
         {/* ── Plan & Billing ── */}
         <TabsContent value="plan" className="space-y-6 mt-0">

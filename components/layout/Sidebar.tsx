@@ -13,6 +13,7 @@ import {
   LogOut,
   BarChart2,
   CreditCard,
+  Wallet,
 } from "lucide-react";
 import { LogoMark } from "@/components/logo";
 import { useState } from "react";
@@ -25,6 +26,7 @@ const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/analytics", label: "Analytics", icon: BarChart2 },
   { href: "/invoices", label: "Invoices", icon: FileText },
+  { href: "/payments", label: "Payments", icon: Wallet },
   { href: "/clients", label: "Clients", icon: Users },
   { href: "/billing", label: "Billing", icon: CreditCard },
   { href: "/settings", label: "Settings", icon: Settings },

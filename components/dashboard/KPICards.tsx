@@ -4,7 +4,7 @@ import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { formatNaira } from "@/lib/utils";
+import { formatCurrency } from "@/lib/utils";
 import {
   TrendingUp,
   Clock,
@@ -18,6 +18,8 @@ import {
 
 export function KPICards() {
   const stats = useQuery(api.invoices.getDashboardStats);
+  const profile = useQuery(api.users.getMyProfile);
+  const currency = profile?.defaultCurrency ?? "NGN";
 
   if (stats === undefined) {
     return (
@@ -48,19 +50,19 @@ export function KPICards() {
         : "text-red-600";
   const MomIcon = momGrowth !== null && momGrowth < 0 ? TrendingDown : TrendingUp;
 
-  const safeNaira = (v: number | undefined | null) =>
-    formatNaira(v ?? 0);
+  const safeAmount = (v: number | undefined | null) =>
+    formatCurrency(v ?? 0, currency);
 
   const cards = [
     {
       title: "Total Revenue",
-      value: safeNaira(stats.totalRevenue),
+      value: safeAmount(stats.totalRevenue),
       icon: TrendingUp,
       iconColor: "text-green-600",
     },
     {
       title: "Outstanding",
-      value: safeNaira(stats.outstanding),
+      value: safeAmount(stats.outstanding),
       icon: Clock,
       iconColor: "text-blue-600",
     },
@@ -72,19 +74,19 @@ export function KPICards() {
     },
     {
       title: "Avg Invoice Value",
-      value: safeNaira(stats.avgInvoiceValue),
+      value: safeAmount(stats.avgInvoiceValue),
       icon: Receipt,
       iconColor: "text-violet-600",
     },
     {
       title: "Overdue Amount",
-      value: safeNaira(stats.overdueAmount),
+      value: safeAmount(stats.overdueAmount),
       icon: AlertCircle,
       iconColor: "text-red-600",
     },
     {
       title: "Tax Collected",
-      value: safeNaira(stats.taxCollected),
+      value: safeAmount(stats.taxCollected),
       icon: CheckCircle,
       iconColor: "text-green-600",
     },

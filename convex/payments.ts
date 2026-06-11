@@ -17,7 +17,13 @@ export const listMyPayments = query({
     return await Promise.all(
       payments.map(async (p) => {
         const invoice = await ctx.db.get(p.invoiceId);
-        return { ...p, invoiceNumber: invoice?.invoiceNumber ?? "—", currency: invoice?.currency ?? "NGN" };
+        return {
+          ...p,
+          invoiceNumber: invoice?.invoiceNumber ?? "—",
+          currency: invoice?.currency ?? "NGN",
+          subtotal: invoice?.subtotal ?? p.amount,
+          tax: invoice?.tax ?? 0,
+        };
       })
     );
   },

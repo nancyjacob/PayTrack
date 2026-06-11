@@ -145,7 +145,7 @@ export function InvoiceBuilder(props: Props) {
   const [newClientPhone, setNewClientPhone] = useState("");
 
   const selectedClient = clients?.find(
-    (c: { _id: Id<"clients">; name: string; email: string }) =>
+    (c: { _id: Id<"clients">; name: string; email?: string }) =>
       c._id === selectedClientId
   );
 
@@ -172,10 +172,14 @@ export function InvoiceBuilder(props: Props) {
 
   async function handleAddNewClient(e: React.FormEvent) {
     e.preventDefault();
+    if (!newClientEmail && !newClientPhone) {
+      toast.error("Please provide at least an email or phone number.");
+      return;
+    }
     try {
       const id = await createClient({
         name: newClientName,
-        email: newClientEmail,
+        email: newClientEmail || undefined,
         phone: newClientPhone || undefined,
       });
       setSelectedClientId(id);
@@ -185,8 +189,8 @@ export function InvoiceBuilder(props: Props) {
       setNewClientEmail("");
       setNewClientPhone("");
       toast.success("Client added");
-    } catch {
-      toast.error("Failed to add client");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to add client");
     }
   }
 
@@ -316,18 +320,20 @@ export function InvoiceBuilder(props: Props) {
                         required
                       />
                     </div>
+                    <p className="text-xs text-muted-foreground">
+                      Provide at least an email or phone number.
+                    </p>
                     <div className="space-y-2">
-                      <Label>Email</Label>
+                      <Label>Email <span className="text-muted-foreground font-normal">(optional)</span></Label>
                       <Input
                         type="email"
                         value={newClientEmail}
                         onChange={(e) => setNewClientEmail(e.target.value)}
                         placeholder="billing@acme.com"
-                        required
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>Phone (optional)</Label>
+                      <Label>Phone <span className="text-muted-foreground font-normal">(optional)</span></Label>
                       <Input
                         value={newClientPhone}
                         onChange={(e) => setNewClientPhone(e.target.value)}
@@ -357,7 +363,7 @@ export function InvoiceBuilder(props: Props) {
                       <CommandEmpty>No clients found.</CommandEmpty>
                       <CommandGroup>
                         {clients?.map(
-                          (client: { _id: Id<"clients">; name: string; email: string }) => (
+                          (client: { _id: Id<"clients">; name: string; email?: string }) => (
                             <CommandItem
                               key={client._id}
                               value={client.name}
@@ -375,7 +381,7 @@ export function InvoiceBuilder(props: Props) {
                               />
                               <div>
                                 <p className="font-medium">{client.name}</p>
-                                <p className="text-xs text-muted-foreground">{client.email}</p>
+                                {client.email && <p className="text-xs text-muted-foreground">{client.email}</p>}
                               </div>
                             </CommandItem>
                           )
@@ -399,7 +405,7 @@ export function InvoiceBuilder(props: Props) {
                   </div>
                 </PopoverContent>
               </Popover>
-              {selectedClient && (
+              {selectedClient?.email && (
                 <p className="text-sm text-muted-foreground">{selectedClient.email}</p>
               )}
             </CardContent>

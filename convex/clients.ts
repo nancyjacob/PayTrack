@@ -29,7 +29,7 @@ export const getClientById = query({
 export const createClient = mutation({
   args: {
     name: v.string(),
-    email: v.string(),
+    email: v.optional(v.string()),
     phone: v.optional(v.string()),
     address: v.optional(v.string()),
   },
@@ -37,14 +37,20 @@ export const createClient = mutation({
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not authenticated");
 
-    const existing = await ctx.db
-      .query("clients")
-      .withIndex("by_userId_email", (q) =>
-        q.eq("userId", userId).eq("email", args.email)
-      )
-      .unique();
+    if (!args.email && !args.phone) {
+      throw new Error("At least one contact method (email or phone) is required.");
+    }
 
-    if (existing) return existing._id;
+    // Deduplicate by email when provided
+    if (args.email) {
+      const existing = await ctx.db
+        .query("clients")
+        .withIndex("by_userId_email", (q) =>
+          q.eq("userId", userId).eq("email", args.email)
+        )
+        .unique();
+      if (existing) return existing._id;
+    }
 
     return await ctx.db.insert("clients", {
       userId,
@@ -67,6 +73,13 @@ export const updateClient = mutation({
     if (!userId) throw new Error("Not authenticated");
     const client = await ctx.db.get(clientId);
     if (!client || client.userId !== userId) throw new Error("Not found");
+
+    const nextEmail = rest.email !== undefined ? rest.email : client.email;
+    const nextPhone = rest.phone !== undefined ? rest.phone : client.phone;
+    if (!nextEmail && !nextPhone) {
+      throw new Error("At least one contact method (email or phone) is required.");
+    }
+
     await ctx.db.patch(clientId, rest);
   },
 });

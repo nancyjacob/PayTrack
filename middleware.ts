@@ -10,6 +10,7 @@ const isUserRoute = createRouteMatcher([
   "/dashboard(.*)",
   "/invoices(.*)",
   "/clients(.*)",
+  "/payments(.*)",
   "/analytics(.*)",
   "/billing(.*)",
   "/settings(.*)",

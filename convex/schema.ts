@@ -35,14 +35,26 @@ export default defineSchema({
     remindersEnabled: v.optional(v.boolean()),
     reminderDays: v.optional(v.array(v.number())),
     isDeleted: v.optional(v.boolean()),
+    emailVerified: v.optional(v.boolean()),
   })
     .index("by_userId", ["userId"])
     .index("by_email", ["email"]),
 
+  emailVerificationTokens: defineTable({
+    userId: v.id("users"),
+    email: v.string(),
+    token: v.string(),
+    expiresAt: v.number(),
+    failedAttempts: v.number(),
+    lastSentAt: v.number(),
+    resendCount: v.number(),
+  })
+    .index("by_userId", ["userId"]),
+
   clients: defineTable({
     userId: v.id("users"),
     name: v.string(),
-    email: v.string(),
+    email: v.optional(v.string()),
     phone: v.optional(v.string()),
     address: v.optional(v.string()),
     createdAt: v.number(),

@@ -9,21 +9,24 @@ import { toast } from "sonner";
 
 export const CUSTOMER_SESSION_KEY = "customerSession";
 
+type Profile = {
+  emailVerified?: boolean;
+  isDeleted?: boolean;
+  [key: string]: unknown;
+};
+
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useConvexAuth();
   const { signOut } = useAuthActions();
-  const profile = useQuery(api.users.getMyProfile);
+  const profile = useQuery(api.users.getMyProfile) as Profile | null | undefined;
   const router = useRouter();
   const pathname = usePathname();
 
-  // Read the portal-level session flag from localStorage (client-only).
-  // null = not yet read; true/false = resolved.
   const [customerSession, setCustomerSession] = useState<boolean | null>(null);
 
   useEffect(() => {
     setCustomerSession(localStorage.getItem(CUSTOMER_SESSION_KEY) === "1");
 
-    // React to flag changes made in other tabs (e.g., admin login clears this flag).
     function onStorage(e: StorageEvent) {
       if (e.key === CUSTOMER_SESSION_KEY) {
         setCustomerSession(e.newValue === "1");
@@ -33,9 +36,9 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener("storage", onStorage);
   }, []);
 
-  // Deleted accounts: sign out immediately and redirect to sign-in.
+  // Deleted accounts: sign out and redirect.
   useEffect(() => {
-    if (!profile || !(profile as typeof profile & { isDeleted?: boolean }).isDeleted) return;
+    if (!profile?.isDeleted) return;
     localStorage.removeItem(CUSTOMER_SESSION_KEY);
     signOut().then(() => {
       toast.error("This account has been deleted.");
@@ -45,19 +48,33 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (isLoading) return;
-    if (customerSession === null) return; // flag not yet read from storage
+    if (customerSession === null) return;
 
     if (!isAuthenticated || !customerSession) {
       router.replace("/sign-in");
       return;
     }
+
+    if (profile === undefined) return; // still loading
+
+    // emailVerified === false means a brand-new account that has not yet gone
+    // through verification. undefined means the field was never set (existing
+    // account created before this feature) — those users are let straight through.
+    if (profile !== null && profile.emailVerified === false) {
+      router.replace("/verify-email");
+      return;
+    }
+
     if (profile === null && pathname !== "/settings") {
       router.replace("/settings");
     }
   }, [isAuthenticated, isLoading, customerSession, profile, pathname, router]);
 
-  // Show spinner while auth or session flag is still resolving.
-  if (isLoading || customerSession === null || (isAuthenticated && customerSession && profile === undefined)) {
+  if (
+    isLoading ||
+    customerSession === null ||
+    (isAuthenticated && customerSession && profile === undefined)
+  ) {
     return (
       <div className="flex min-h-svh items-center justify-center">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
@@ -66,7 +83,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   }
 
   if (!isAuthenticated || !customerSession) return null;
-  if ((profile as typeof profile & { isDeleted?: boolean })?.isDeleted) return null;
+  if (profile?.isDeleted) return null;
 
   return <>{children}</>;
 }

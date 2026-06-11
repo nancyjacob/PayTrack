@@ -2,6 +2,7 @@ import { convexAuth } from "@convex-dev/auth/server";
 import { Password } from "@convex-dev/auth/providers/Password";
 import { Email } from "@convex-dev/auth/providers/Email";
 import { fromEmail } from "./lib/email";
+import { internal } from "./_generated/api";
 
 export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
   providers: [
@@ -46,6 +47,13 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
         email,
         plan: "free",
         invoiceCount: 0,
+        emailVerified: false,
+      });
+      // Schedule verification email — runs outside this transaction
+      await ctx.scheduler.runAfter(0, internal.emailVerification.generateAndSend, {
+        userId,
+        email,
+        ownerName: nameFallback,
       });
     },
   },
